@@ -351,21 +351,42 @@ public class TranslateMicroDataToCode {
         int valueCode = 0;
         int valueMicroData = (int) dataSetSynPop.getHouseholdDataSet().getValueAt(ddCount,"tenure");
         switch (valueMicroData){
-            case 1:
-                valueCode = 1;//own
+            case 1: //1919-1945
+                valueCode = 1;
                 break;
-            case 2:
-                valueCode = 2;//rent private
+            case 2: //1946-1960
+                valueCode = 2;
+            case 3: // 1961-1970
+                valueCode = 3;
                 break;
-            case 3:
-            case 4:
-                valueCode = 3;//rent social
+            case 4: //1971-1980
+                valueCode = 4;
+                break;
+            case 5://1981-1990
+                valueCode = 5;
+                break;
+            case 6: //1991-1995
+                valueCode = 6;
+                break;
+            case 7: //1996-2000
+                valueCode = 7;
+                break;
+            case 8: //2001-2005
+                valueCode = 8;
+                break;
+            case 9: //2006-2011
+                valueCode = 9;
                 break;
         }
-        // 1 = own (with/without mortgage)
-        // 2 = rent
-        // 3 = local authority
-        // 4 = RSL
+        //1 = Buildings built in 1919–1945
+        //2 = Buildings built in 1946–1960
+        //3 = Buildings built in 1961–1970
+        //4 = Buildings built in 1971–1980
+        //5 = Buildings built in 1981–1990
+        //6 = Buildings built in 1991–1995
+        //7 = Buildings built in 1996–2000
+        //8 = Buildings built in 2001–2005
+        //9 = Buildings built in 2006–2011
 
         dataSetSynPop.getHouseholdDataSet().setValueAt(ddCount,"tenureCode",valueCode);
     }
