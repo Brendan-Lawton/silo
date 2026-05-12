@@ -311,20 +311,19 @@ public class TranslateMicroDataToCode {
         int valueMicroData = (int) dataSetSynPop.getHouseholdDataSet().getValueAt(ddCount,"tenure");
         switch (valueMicroData){
             case 1:
-                valueCode = 1;//own
+                valueCode = 1;//1-2 rooms
                 break;
             case 2:
-                valueCode = 2;//rent private
+                valueCode = 2;//3-4 rooms
                 break;
             case 3:
             case 4:
-                valueCode = 3;//rent social
+                valueCode = 3;//not available
                 break;
         }
-        // 1 = own (with/without mortgage)
-        // 2 = rent
-        // 3 = local authority
-        // 4 = RSL
+        // 1 = Usual‑residence dwellings with 1–2 rooms
+        // 2 = Usual‑residence dwellings with 3–4 rooms
+        // 3 = not available
 
         dataSetSynPop.getHouseholdDataSet().setValueAt(ddCount,"tenureCode",valueCode);
     }
