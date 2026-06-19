@@ -20,7 +20,7 @@ public class GeoDataReaderMuc implements GeoDataReader {
 
     private GeoData geoDataMuc;
 
-    private final String SHAPE_IDENTIFIER = "id";
+    private final String SHAPE_IDENTIFIER = "TAZ_ID";
     private final String ZONE_ID_COLUMN = "Zone";
 
     public GeoDataReaderMuc(GeoData geoDataMuc) {

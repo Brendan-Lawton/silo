@@ -26,6 +26,7 @@ public abstract class AbstractPropertiesSynPop {
     public int[] householdSizes;
     public int[] yearBracketsDwelling;
     public int[] sizeBracketsDwelling;
+    public int[] bedroomsBracketsDwelling;
     public int maxIterations;
     public double maxError;
     public double improvementError;
@@ -34,7 +35,9 @@ public abstract class AbstractPropertiesSynPop {
     public double initialError;
     public String weightsFileName;
     public String errorsMunicipalityFileName;
+    public String errorsBoroughFileName;
     public String errorsCountyFileName;
+
     public String[] jobStringType;
     public double alphaJob;
     public double gammaJob;

@@ -1,9 +1,9 @@
-package de.tum.bgu.msm.syntheticPopulationGenerator.optimizationIPU.optimization;
+package de.tum.bgu.msm.syntheticPopulationGenerator.munich2022.optimizationIPU.optimization;
 
+import de.tum.bgu.msm.syntheticPopulationGenerator.munich2022.DataSetSynPop;
 import de.tum.bgu.msm.syntheticPopulationGenerator.properties.PropertiesSynPop;
-import de.tum.bgu.msm.utils.SiloUtil;
-import de.tum.bgu.msm.syntheticPopulationGenerator.DataSetSynPop;
 import de.tum.bgu.msm.util.concurrent.ConcurrentExecutor;
+import de.tum.bgu.msm.utils.SiloUtil;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -311,7 +311,6 @@ public class IPUbyCountyCityAndBorough {
         }
 
         SiloUtil.writeTableDataSet(dataSetSynPop.getWeights(), PropertiesSynPop.get().main.weightsFileName);
-        SiloUtil.writeTableDataSet(dataSetSynPop.getErrorsBorough(), PropertiesSynPop.get().main.errorsBoroughFileName);
         SiloUtil.writeTableDataSet(dataSetSynPop.getErrorsMunicipality(), PropertiesSynPop.get().main.errorsMunicipalityFileName);
         SiloUtil.writeTableDataSet(dataSetSynPop.getErrorsCounty(), PropertiesSynPop.get().main.errorsCountyFileName);
         SiloUtil.writeTableDataSet(dataSetSynPop.getErrorsSummary(), PropertiesSynPop.get().main.errorsSummaryFileName);
