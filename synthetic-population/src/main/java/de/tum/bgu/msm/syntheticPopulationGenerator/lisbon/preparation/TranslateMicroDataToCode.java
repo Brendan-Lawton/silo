@@ -95,9 +95,9 @@ public class TranslateMicroDataToCode {
                 throw new IllegalArgumentException(String.format("Code %d not valid.", occupation));
         }
 
-//        Value = 1.0	Label = Employed (EconFull, EconPart, EconGovT)
-//        Value = 2.0	Label = Unemployed (EconSick, EconRgUn, EconSkng, EconNSkg)
-//        Value = 3.0	Label = Student, retired (EconStdt, EconRtrd)
+//        Value = 1.0	Label = Employed
+//        Value = 2.0	Label = Unemployed
+//        Value = 3.0	Label = Student, retired
 //        Value = 98.0	Label = Does not know
 //        Value = 99.0	Label = Not applicable
 //        Value = 0.0   Label = Prefer Not to Say
@@ -163,8 +163,6 @@ public class TranslateMicroDataToCode {
             default:
                 throw new IllegalArgumentException(String.format("Gender code %d not in survey data", gender));
         }
-
-
         dataSetSynPop.getPersonDataSet().setValueAt(personCount,"genderCode",valueCode);
 
 //                1 Value = 1.0	Label = Male/masculine
@@ -200,7 +198,7 @@ public class TranslateMicroDataToCode {
 //     99  = Does not know                                             -> Unknown
 // ------------------Output educationCode ---------
 //       NAQual Value = 0	    Label = does not apply
-//       1 NoQual Value =    1	Label = None or only 1st, 2nd or 3rd year completed
+//       1 NoQual Value =  1	Label = None or only 1st, 2nd or 3rd year completed
 //       2 LowQual Value = 2	Label = Basic education (1st, 2nd or 3rd cycle)
 //       3 MidQual Value = 3	Label = Upper secondary education (12th grade completed) or post‑secondary (non‑higher technological specialization course)
 //       4 HighQual Value = 4	Label = Higher education (Bachelor’s, Licentiate, Master’s, Doctorate, Short‑cycle professional higher technical course)
@@ -273,11 +271,15 @@ public class TranslateMicroDataToCode {
             case 4:
                 valueCode = 4;
                 break;
+            case 5:
+                valueCode = 5;
+                break;
         }
 //         Value = 1.0	Label = house detached
 //         Value = 2.0	Label = other house: semi-detached, terraced/end of terrace
-//         Value = 3.0	Label = flat or maisonette, room/rooms
-//         Value = 4.0	Label = other
+//         Value = 3.0	Label = flat or apartment
+//         Value = 4.0	Label = houses in groups of three or more
+        // Value = 5.0	Label = other
 
 
         dataSetSynPop.getHouseholdDataSet().setValueAt(hhCount,"ddTypeCode",valueCode);
