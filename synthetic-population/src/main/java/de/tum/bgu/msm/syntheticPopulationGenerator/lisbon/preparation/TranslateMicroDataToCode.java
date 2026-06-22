@@ -41,8 +41,8 @@ public class TranslateMicroDataToCode {
             translateDwellingType(hhCount);
             translateDwellingUsage(hhCount);
             translateDwellingSize(hhCount); //new method
-            translateDwellingsBathroom(hhCount); //new method
-            translateDwellingsYearBuilt(hhCount); //new method
+            //translateDwellingsBathroom(hhCount); //new method
+            //translateDwellingsYearBuilt(hhCount); //new method
             translateIncome(hhCount); //new method
             //added variables - size, dwellings with bathrooms, year built, income
         }
@@ -331,7 +331,7 @@ public class TranslateMicroDataToCode {
     }
 
     //----dwelling bathroom
-    private void translateDwellingsBathroom(int ddCount){
+    /*private void translateDwellingsBathroom(int ddCount){
         int valueCode = 0;
         int valueMicroData = (int) dataSetSynPop.getHouseholdDataSet().getValueAt(ddCount,"bathroom");
         switch (valueMicroData){
@@ -391,7 +391,7 @@ public class TranslateMicroDataToCode {
         //9 = Buildings built in 2006–2011
 
         dataSetSynPop.getHouseholdDataSet().setValueAt(ddCount,"tenureCode",valueCode);
-    }
+    }*/
 
     //----household-level income
     private void translateIncome(int ddCount){
