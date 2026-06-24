@@ -1,0 +1,224 @@
+package run;
+
+import de.tum.bgu.msm.container.DataContainer;
+import de.tum.bgu.msm.container.ModelContainer;
+import de.tum.bgu.msm.data.Region;
+import de.tum.bgu.msm.data.dwelling.Dwelling;
+import de.tum.bgu.msm.data.dwelling.DwellingFactory;
+import de.tum.bgu.msm.data.household.Household;
+import de.tum.bgu.msm.data.household.HouseholdFactory;
+import de.tum.bgu.msm.data.person.PersonFactory;
+import de.tum.bgu.msm.events.impls.household.MoveEvent;
+import de.tum.bgu.msm.matsim.*;
+import de.tum.bgu.msm.models.autoOwnership.CreateCarOwnershipModel;
+import de.tum.bgu.msm.models.demography.birth.BirthModel;
+import de.tum.bgu.msm.models.demography.birth.BirthModelImpl;
+import de.tum.bgu.msm.models.demography.birth.DefaultBirthStrategy;
+import de.tum.bgu.msm.models.demography.birthday.BirthdayModel;
+import de.tum.bgu.msm.models.demography.birthday.BirthdayModelImpl;
+import de.tum.bgu.msm.models.demography.death.DeathModel;
+import de.tum.bgu.msm.models.demography.death.DeathModelImpl;
+import de.tum.bgu.msm.models.demography.death.DefaultDeathStrategy;
+import de.tum.bgu.msm.models.demography.divorce.DefaultDivorceStrategy;
+import de.tum.bgu.msm.models.demography.divorce.DivorceModel;
+import de.tum.bgu.msm.models.demography.divorce.DivorceModelImpl;
+import de.tum.bgu.msm.models.demography.driversLicense.DefaultDriversLicenseStrategy;
+import de.tum.bgu.msm.models.demography.driversLicense.DriversLicenseModel;
+import de.tum.bgu.msm.models.demography.driversLicense.DriversLicenseModelImpl;
+import de.tum.bgu.msm.models.demography.education.EducationModel;
+import de.tum.bgu.msm.models.demography.education.EducationModelImpl;
+import de.tum.bgu.msm.models.demography.employment.EmploymentModel;
+import de.tum.bgu.msm.models.demography.employment.EmploymentModelImpl;
+import de.tum.bgu.msm.models.demography.leaveParentalHousehold.DefaultLeaveParentalHouseholdStrategy;
+import de.tum.bgu.msm.models.demography.leaveParentalHousehold.LeaveParentHhModel;
+import de.tum.bgu.msm.models.demography.leaveParentalHousehold.LeaveParentHhModelImpl;
+import de.tum.bgu.msm.models.demography.marriage.DefaultMarriageStrategy;
+import de.tum.bgu.msm.models.demography.marriage.MarriageModel;
+import de.tum.bgu.msm.models.demography.marriage.MarriageModelImpl;
+import de.tum.bgu.msm.models.jobmography.JobMarketUpdate;
+import de.tum.bgu.msm.models.jobmography.JobMarketUpdateImpl;
+import de.tum.bgu.msm.models.realEstate.construction.*;
+import de.tum.bgu.msm.models.realEstate.demolition.DefaultDemolitionStrategy;
+import de.tum.bgu.msm.models.realEstate.demolition.DemolitionModel;
+import de.tum.bgu.msm.models.realEstate.demolition.DemolitionModelImpl;
+import de.tum.bgu.msm.models.realEstate.pricing.DefaultPricingStrategy;
+import de.tum.bgu.msm.models.realEstate.pricing.PricingModel;
+import de.tum.bgu.msm.models.realEstate.pricing.PricingModelImpl;
+import de.tum.bgu.msm.models.realEstate.renovation.DefaultRenovationStrategy;
+import de.tum.bgu.msm.models.realEstate.renovation.RenovationModel;
+import de.tum.bgu.msm.models.realEstate.renovation.RenovationModelImpl;
+import de.tum.bgu.msm.models.relocation.migration.InOutMigration;
+import de.tum.bgu.msm.models.relocation.migration.InOutMigrationImpl;
+import de.tum.bgu.msm.models.relocation.moves.*;
+import de.tum.bgu.msm.models.transportModel.TransportModel;
+import de.tum.bgu.msm.properties.Properties;
+import de.tum.bgu.msm.utils.SiloUtil;
+import models.FabilandConstructionLocationStrategy;
+import org.matsim.api.core.v01.Scenario;
+import org.matsim.core.config.Config;
+import org.matsim.core.scenario.ScenarioUtils;
+
+import java.util.Collection;
+import java.util.Random;
+
+import static de.tum.bgu.msm.matsim.SimpleCommuteModeChoiceMatsimScenarioAssembler.HandlingOfRandomness;
+
+public class ModelBuilderFabilandSimplified{
+
+    public static ModelContainer getModelContainer(DataContainer dataContainer, Properties properties, Config config) {
+
+        final PersonFactory ppFactory = dataContainer.getHouseholdDataManager().getPersonFactory();
+        final HouseholdFactory hhFactory = dataContainer.getHouseholdDataManager().getHouseholdFactory();
+        final DwellingFactory ddFactory = dataContainer.getRealEstateDataManager().getDwellingFactory();
+
+        final BirthModel birthModel = new BirthModelImpl(dataContainer, ppFactory, properties, new DefaultBirthStrategy(), SiloUtil.provideNewRandom());
+
+        final BirthdayModel birthdayModel = new BirthdayModelImpl(dataContainer, properties, SiloUtil.provideNewRandom());
+
+        final DeathModel deathModel = new DeathModelImpl(dataContainer, properties, new DefaultDeathStrategy(), SiloUtil.provideNewRandom());
+
+        final HousingStrategy<Dwelling> housingStrategy = new SimpleCommuteModeChoiceHousingStrategyImpl( dataContainer,
+                        properties,
+                        dataContainer.getTravelTimes(),
+                        new DwellingUtilityStrategyImpl(),
+                        utl ->  Math.exp(0.5*utl) ,
+                        new RegionUtilityStrategyImpl(),
+                        utl ->  Math.exp(0.5*utl) ,
+                        new SimpleMatsimCommuteModeChoice( dataContainer, properties, SiloUtil.provideNewRandom() )
+        );
+
+        final HousingStrategy<Dwelling> housingStrategy2 = new HousingStrategy<Dwelling>(){
+            @Override public void setup(){
+                // probably ok to do nothing
+            }
+            @Override public void prepareYear(){
+                // probably ok to do nothing
+            }
+
+            @Override public boolean isHouseholdEligibleToLiveHere( Household household, Dwelling dd ){
+                return true;
+            }
+
+            @Override public double calculateHousingUtility( Household hh, Dwelling dwelling ){
+                return 1.;
+            }
+            @Override public double calculateSelectDwellingProbability( double util ){
+                return Math.exp( 0.5 * util );
+            }
+
+            @Override public double calculateRegionalUtility( Household household, Region region ){
+                return 1.;
+            }
+            @Override public double calculateSelectRegionProbability( double util ){
+                return Math.exp( 0.5 * util );
+            }
+
+            @Override public HousingStrategy<Dwelling> duplicate(){
+                throw new RuntimeException( "not implemented" );
+            }
+        };
+        // (( Ich weiss nicht, warum die utilities offen gelegt werden, weil sie eigentlich nur über die proba functions (die ja oben im
+        // ctor stehen) angesprochen werden.  Vllt könnten die protected sein, dann würde das noch schmaler werden.
+        // (--> nein, geht nicht, wird an wenigen Stellen auch ausserhalb verwendet.  (Da werden die Nutzen aufsummiert; das könnte
+        // man vllt auch per "ln" aus den probas reverse engineeren.  Aber so viel design change wollen wir vllt nicht.) ))
+
+        final MovesModel movesModel = new MovesModelImpl( dataContainer, properties, new DefaultMovesStrategy(), housingStrategy, SiloUtil.provideNewRandom());
+
+        final MovesModel movesModel2 = new AbstractMovesModel( dataContainer, properties, SiloUtil.provideNewRandom() ) {
+            @Override public Collection<MoveEvent> getEventsForCurrentYear( int year ){
+                throw new RuntimeException( "not implemented" );
+            }
+            @Override public boolean handleEvent( MoveEvent event ){
+                throw new RuntimeException( "not implemented" );
+            }
+            @Override public int searchForNewDwelling( Household household ){
+                return -1; // means no dwelling was found
+            }
+        };
+
+        final CreateCarOwnershipModel carOwnershipModel = new FabilandCarOwnership();
+
+        final DivorceModel divorceModel = new DivorceModelImpl(
+                dataContainer, movesModel, carOwnershipModel, hhFactory,
+                properties, new DefaultDivorceStrategy(), SiloUtil.provideNewRandom());
+
+        final DriversLicenseModel driversLicenseModel = new DriversLicenseModelImpl(dataContainer, properties, new DefaultDriversLicenseStrategy(), SiloUtil.provideNewRandom());
+
+        final EducationModel educationModel = new EducationModelImpl(dataContainer, properties, SiloUtil.provideNewRandom());
+
+        final EmploymentModel employmentModel = new EmploymentModelImpl(dataContainer, properties, SiloUtil.provideNewRandom());
+
+        final LeaveParentHhModel leaveParentsModel = new LeaveParentHhModelImpl(dataContainer, movesModel,
+                carOwnershipModel, hhFactory, properties, new DefaultLeaveParentalHouseholdStrategy(), SiloUtil.provideNewRandom());
+
+        final JobMarketUpdate jobMarketUpdateModel = new JobMarketUpdateImpl(dataContainer, properties, SiloUtil.provideNewRandom());
+
+//        ConstructionModel construction = new ConstructionModelImpl(dataContainer, ddFactory,
+//                properties, new FabilandConstructionLocationStrategy(), new DefaultConstructionDemandStrategy(), SiloUtil.provideNewRandom());
+
+        final PricingModel pricing = new PricingModelImpl(dataContainer, properties, new DefaultPricingStrategy(), SiloUtil.provideNewRandom());
+
+//        RenovationModel renovation = new RenovationModelImpl(dataContainer, properties, new DefaultRenovationStrategy(), SiloUtil.provideNewRandom());
+
+        final ConstructionOverwrite constructionOverwrite = new ConstructionOverwriteImpl(dataContainer, ddFactory, properties, SiloUtil.provideNewRandom());
+
+        final InOutMigration inOutMigration = new InOutMigrationImpl(dataContainer, employmentModel, movesModel,
+                carOwnershipModel, driversLicenseModel, properties, SiloUtil.provideNewRandom());
+
+//        DemolitionModel demolition = new DemolitionModelImpl(dataContainer, movesModel,
+//                inOutMigration, properties, new DefaultDemolitionStrategy(), SiloUtil.provideNewRandom());
+
+        final MarriageModel marriageModel = new MarriageModelImpl(dataContainer, movesModel, inOutMigration,
+                carOwnershipModel, hhFactory, properties, new DefaultMarriageStrategy(), SiloUtil.provideNewRandom());
+
+        TransportModel transportModel;
+        MatsimScenarioAssembler scenarioAssembler;
+
+        MatsimData matsimData = null;
+        if (config != null) {
+            final Scenario scenario = ScenarioUtils.loadScenario(config);
+            matsimData = new MatsimData(config, properties, ZoneConnectorManagerImpl.ZoneConnectorMethod.WEIGHTED_BY_POPULATION, dataContainer, scenario.getNetwork(), scenario.getTransitSchedule());
+        }
+        switch (properties.transportModel.transportModelIdentifier) {
+            case MATSIM:
+//                SimpleCommuteModeChoice commuteModeChoice = new SimpleCommuteModeChoice(dataContainer, properties, SiloUtil.provideNewRandom());
+                SimpleMatsimCommuteModeChoice commuteModeChoice = new SimpleMatsimCommuteModeChoice(dataContainer, properties, SiloUtil.provideNewRandom());
+                scenarioAssembler = new SimpleCommuteModeChoiceMatsimScenarioAssembler(dataContainer, properties, commuteModeChoice, HandlingOfRandomness.localInstanceFromMatsimWithAlwaysSameSeed);
+                transportModel = new MatsimTransportModel(dataContainer, config, properties, scenarioAssembler, matsimData);
+                break;
+            case NONE:
+            default:
+                transportModel = null;
+        }
+
+        final ModelContainer modelContainer = new ModelContainer(
+                birthModel, birthdayModel,
+                deathModel, marriageModel,
+                divorceModel, driversLicenseModel,
+                educationModel, employmentModel,
+                leaveParentsModel, jobMarketUpdateModel,
+                null, null, pricing, null,
+                constructionOverwrite, inOutMigration, movesModel, transportModel);
+
+        return modelContainer;
+    }
+
+    private static class FabilandCarOwnership implements CreateCarOwnershipModel {
+
+        private final Random random;
+
+        FabilandCarOwnership() {
+            this.random = SiloUtil.provideNewRandom();
+        }
+
+        @Override
+        public void run() {
+
+        }
+
+        @Override
+        public void simulateCarOwnership(Household hh) {
+            hh.setAutos(random.nextInt(3)+1);
+        }
+    }
+}
