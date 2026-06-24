@@ -8,6 +8,7 @@ import de.tum.bgu.msm.data.household.HouseholdFactory;
 import de.tum.bgu.msm.data.person.PersonFactory;
 import de.tum.bgu.msm.matsim.*;
 import de.tum.bgu.msm.models.autoOwnership.CreateCarOwnershipModel;
+import de.tum.bgu.msm.models.demography.birth.BirthModel;
 import de.tum.bgu.msm.models.demography.birth.BirthModelImpl;
 import de.tum.bgu.msm.models.demography.birth.DefaultBirthStrategy;
 import de.tum.bgu.msm.models.demography.birthday.BirthdayModel;
@@ -33,6 +34,7 @@ import de.tum.bgu.msm.models.demography.marriage.MarriageModel;
 import de.tum.bgu.msm.models.demography.marriage.MarriageModelImpl;
 import de.tum.bgu.msm.models.jobmography.JobMarketUpdate;
 import de.tum.bgu.msm.models.jobmography.JobMarketUpdateImpl;
+import de.tum.bgu.msm.models.modeChoice.CommuteModeChoice;
 import de.tum.bgu.msm.models.realEstate.construction.*;
 import de.tum.bgu.msm.models.realEstate.demolition.DefaultDemolitionStrategy;
 import de.tum.bgu.msm.models.realEstate.demolition.DemolitionModel;
@@ -68,30 +70,84 @@ public class ModelBuilderFabiland {
         HouseholdFactory hhFactory = dataContainer.getHouseholdDataManager().getHouseholdFactory();
         DwellingFactory ddFactory = dataContainer.getRealEstateDataManager().getDwellingFactory();
 
-        final BirthModelImpl birthModel = new BirthModelImpl(dataContainer, ppFactory, properties, new DefaultBirthStrategy(), SiloUtil.provideNewRandom());
+        final BirthModel birthModel = new BirthModelImpl(dataContainer, ppFactory, properties, new DefaultBirthStrategy(), SiloUtil.provideNewRandom());
 
         BirthdayModel birthdayModel = new BirthdayModelImpl(dataContainer, properties, SiloUtil.provideNewRandom());
 
         DeathModel deathModel = new DeathModelImpl(dataContainer, properties, new DefaultDeathStrategy(), SiloUtil.provideNewRandom());
 
-        MovesModelImpl movesModel = new MovesModelImpl(
-                dataContainer, properties,
-                new DefaultMovesStrategy(),
-                new SimpleCommuteModeChoiceHousingStrategyImpl(dataContainer,
-                        properties,
-                        dataContainer.getTravelTimes(),
-                        new DwellingUtilityStrategyImpl(),
-                        new DefaultDwellingProbabilityStrategy(),
-                        new RegionUtilityStrategyImpl(),
-                        new RegionProbabilityStrategyImpl() ,
-                        new SimpleMatsimCommuteModeChoice(dataContainer, properties, SiloUtil.provideNewRandom())
-                ), SiloUtil.provideNewRandom());
+        MovesModel movesModel;
+        {
+
+            final DwellingUtilityStrategy dwellingUtilityStrategy = new DwellingUtilityStrategyImpl();
+            // (This is something like
+            // [alpha * sizeUtility + beta * autoAccessibilityUtility + gamma * transitAccessibilityUtility + (1.0 - alpha - beta - gamma) * qualityUtility]^delta   * priceUtl^eps * workDistanceUtl^{1-delta-eps}
+            // That is, some kind of Cobbs Douglas function with contributions
+            // * workDistanceUtil
+            // * priceUtl
+            // * a weighted sum of sizeUtl, autoAccUtl, transitAccUtl, qualityUtl.
+            // All of the params depend on income and hh size, and are given for corresponding categories.
+            // )
+
+            final DwellingProbabilityStrategy dwellingProbabilityStrategy = new DefaultDwellingProbabilityStrategy();
+            // (is just exp(beta*util); should be called "weight" instead of "probability" since it is not normalized.  kai, apr'26)
+
+            final RegionUtilityStrategy regionUtilityStrategy = new RegionUtilityStrategyImpl();
+            // (This is something like (1 - alpha) * price + alpha * accessibility, with alpha depending on the income category.)
+
+            final RegionProbabilityStrategy regionProbabilityStrategy = new RegionProbabilityStrategyImpl();
+            //( same as DefaultDwellingProbabilityStrategy, see above. kai, apr'26)
+
+            final CommuteModeChoice commuteModeChoice1 = new SimpleMatsimCommuteModeChoice( dataContainer, properties, SiloUtil.provideNewRandom() );
+            // (there is a comment in SimpleCommuteModeChoiceHousingStrategyImpl that the constructor should actually work w/o providing the CommuteChoiceModel.  It then provides
+            // CommuteModeChoice internally, as SimpleCommuteModeChoice.  That model looks similar; presumably some of the lookups (e.g. travel time) used to have different arguments.
+            // kai, apr'26)
+            // (I think that the existing implementations do the following: compute the logit probas for car and pt if car is an option; then go from HH member with largest car
+            // proba down and select car with logit proba as long as another car is available in the HH.)
+            // (yy this implies, as long as nothing else comes in, that moves consider new residencies under the assumption that they will not change the number of vehicles)
+
+            final HousingStrategy housingStrategy = new SimpleCommuteModeChoiceHousingStrategyImpl( dataContainer,
+                    properties,
+                    dataContainer.getTravelTimes(),
+                    dwellingUtilityStrategy,
+                    dwellingProbabilityStrategy,
+                    regionUtilityStrategy,
+                    regionProbabilityStrategy,
+                    commuteModeChoice1
+            );
+            /// (If I see this right, this is computing the necessary inputs to {@link DwellingUtilityStrategy} using all the other dependencies, and then computing the dwelling
+            /// probabilities using the {@link DwellingUtilityStrategy}.
+
+            final MovesStrategy movesStrategy = new DefaultMovesStrategy();
+            // (This says that the moving proba is  1 - 1/(1+0.03 * Math.exp(10*(householdSatisfaction - currentDwellingUtility)))
+
+            movesModel = new MovesModelImpl( dataContainer, properties, movesStrategy, housingStrategy, SiloUtil.provideNewRandom() );
+        }
+        // (Overall, I think that life events are not explicitly triggering a move.  They will, however, shift the respective utilities, and so a move becomes more probable.)
+
+        // (For our own issue, which (only) is to "age" the population, this seems like a lot of overhead.  On the other hand, it is not immediately clear how else this should be
+        // resolved; location choice needs to be something like logit based on location utility.  What might end up being a bit of a problem is (commute) mode choice ... we would
+        // need to say that maybe the commute mode choice to make a residence decision is based on what is defined above, but the final mode choice may be different once people
+        // optimize into their new environment. kai, apr'26)
+
+        // (Also, the MatsimScenarioAssembler takes the commute mode from the Silo mode choice model (although I am not sure that it will give the same results are for housing
+        // choice, since the random numbers are different--????).  Evidently, we can override this in MATSim.  Clearly, this will be two models pull into different directions.
+        // Unfortunately, I fail to see how we calibrade mode choice on the MATSim side if we rely on upstream mode choice.  Maybe possible in principle, but will not be sensitive
+        // to (the details of) many transport policies.  kai, apr'26)
+
+        // (As we have known for some time now, this is two competing modelling paradigms: mode (and time) choice as part of the DTA vs mode (and time?) choice as part of the
+        // upstream model.  Rolf seems to have been a proponent of the former.  However, from a MATSim side and MATSim research side, this is not something we can continue since we
+        // have experience with mode choice in MATSim but not in upstream models, and this is also a path that we do not want to take (would need to be done by someone else).
+        // We should consider to re-code the commute mode choice for our purposes, i.e. always allow for car and pt during housing search, using income-dependent utilities and
+        // fixed costs for cars (and pt), etc., and then sort out the actual choice later.  However, this may end up not so different from the current approach, so why not leave
+        // the current approach in place, but change as follows: Only if a silo person has moved residency or job, then we use the mode choice from silo as an initial suggestion;
+        // otherwise we keep the plan (including mode) from previous iterations. -- Such an approach would make a lot of sense anyways; it was already encoded as "hot start" in
+        // both matsim-urbansim couplings (by KN and by TN); and it would be far enough downstream of SILO, i.e. only in the adapter class. --  A bit disappointing that 20 year
+        // later we are not any further here. :-(   kai, apr'26)
 
         CreateCarOwnershipModel carOwnershipModel = new FabilandCarOwnership();
 
-        DivorceModel divorceModel = new DivorceModelImpl(
-                dataContainer, movesModel, carOwnershipModel, hhFactory,
-                properties, new DefaultDivorceStrategy(), SiloUtil.provideNewRandom());
+        DivorceModel divorceModel = new DivorceModelImpl( dataContainer, movesModel, carOwnershipModel, hhFactory, properties, new DefaultDivorceStrategy(), SiloUtil.provideNewRandom());
 
         DriversLicenseModel driversLicenseModel = new DriversLicenseModelImpl(dataContainer, properties, new DefaultDriversLicenseStrategy(), SiloUtil.provideNewRandom());
 
@@ -137,7 +193,12 @@ public class ModelBuilderFabiland {
 //                SimpleCommuteModeChoice commuteModeChoice = new SimpleCommuteModeChoice(dataContainer, properties, SiloUtil.provideNewRandom());
                 SimpleMatsimCommuteModeChoice commuteModeChoice = new SimpleMatsimCommuteModeChoice(dataContainer, properties, SiloUtil.provideNewRandom());
 				// (yyyy is also instantiated above.  why not re-use?)
+                // --> fails the regression test.  Which is no wonder, since it changes the random number sequence.
+
                 scenarioAssembler = new SimpleCommuteModeChoiceMatsimScenarioAssembler(dataContainer, properties, commuteModeChoice, HandlingOfRandomness.localInstanceFromMatsimWithAlwaysSameSeed);
+                // yyyyyy the above needs to be re-coded from a MATSim perspective ... i.e. (1) select the same agents, and (2) take the mode "suggestion" from silo only if home or
+                // job location has changed, otherwise keep existing plan with existing mode.  kai, apr'26
+
                 transportModel = new MatsimTransportModel(dataContainer, config, properties, scenarioAssembler, matsimData);
                 break;
             case NONE:
