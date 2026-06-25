@@ -33,26 +33,26 @@ public final class MatsimData {
 
 	private MutableScenario scenario;
 	private LeastCostPathCalculatorFactory leastCostPathCalculatorFactory;
-    private final LeastCostPathCalculatorFactory multiNodeFactory = new FastMultiNodeDijkstraFactory(true);
+	private final LeastCostPathCalculatorFactory multiNodeFactory = new FastMultiNodeDijkstraFactory(true);
 
-    private SwissRailRaptorData raptorData;
-    private SwissRailRaptorData raptorDataOneToAll;
+	private SwissRailRaptorData raptorData;
+	private SwissRailRaptorData raptorDataOneToAll;
 
-    private final int nThreads;
+	private final int nThreads;
 
 	private Network carNetwork;
-    private Network ptNetwork;
+	private Network ptNetwork;
 
 	private RaptorParameters raptorParameters;
-    private DefaultRaptorParametersForPerson parametersForPerson;
-    private LeastCostRaptorRouteSelector routeSelector;
-    private DefaultRaptorStopFinder defaultRaptorStopFinder;
+	private DefaultRaptorParametersForPerson parametersForPerson;
+	private LeastCostRaptorRouteSelector routeSelector;
+	private DefaultRaptorStopFinder defaultRaptorStopFinder;
 
-    private TravelDisutility travelDisutility;
-    private TravelTime travelTime;
+	private TravelDisutility travelDisutility;
+	private TravelTime travelTime;
 
-    private final ZoneConnectorManager zoneConnectorManager;
-    private final static int NUMBER_OF_CALC_POINTS = 1;
+	private final ZoneConnectorManager zoneConnectorManager;
+	private final static int NUMBER_OF_CALC_POINTS = 1;
 
 	// yyyyyy The TripRouter needs the vehicles container to work properly.  This is provided to the TripRouter via the Scenario.  In consequence, we need to maintain a somewhat
 	// consistent scenario.
@@ -68,132 +68,132 @@ public final class MatsimData {
 	 * @deprecated -- use {@link MatsimData#MatsimData(Properties, ZoneConnectorManager.ZoneConnectorMethod, DataContainer, MutableScenario)}
 	 */
 	@Deprecated
-    public MatsimData(Config config, Properties properties, ZoneConnectorManagerImpl.ZoneConnectorMethod method, DataContainer dataContainer, Network network, TransitSchedule schedule) {
+	public MatsimData(Config config, Properties properties, ZoneConnectorManagerImpl.ZoneConnectorMethod method, DataContainer dataContainer, Network network, TransitSchedule schedule) {
 		this.scenario = ScenarioUtils.createMutableScenario( config );
 		this.scenario.setTransitSchedule( schedule );
 
-        int threads = properties.main.numberOfThreads;
-        final Collection<Zone> zones = dataContainer.getGeoData().getZones().values();
-        ZoneConnectorManager zoneConnectorManager = switch( method ){
-	        case RANDOM -> ZoneConnectorManagerImpl.createRandomZoneConnectors( zones, NUMBER_OF_CALC_POINTS );
-	        case WEIGHTED_BY_POPULATION -> ZoneConnectorManagerImpl.createWeightedZoneConnectors( zones,
-				dataContainer.getRealEstateDataManager(),
-				dataContainer.getHouseholdDataManager() );
-	        default -> throw new RuntimeException( "No valid zone connector method defined!" );
-	};
+		int threads = properties.main.numberOfThreads;
+		final Collection<Zone> zones = dataContainer.getGeoData().getZones().values();
+		ZoneConnectorManager zoneConnectorManager = switch( method ){
+			case RANDOM -> ZoneConnectorManagerImpl.createRandomZoneConnectors( zones, NUMBER_OF_CALC_POINTS );
+			case WEIGHTED_BY_POPULATION -> ZoneConnectorManagerImpl.createWeightedZoneConnectors( zones,
+					dataContainer.getRealEstateDataManager(),
+					dataContainer.getHouseholdDataManager() );
+			default -> throw new RuntimeException( "No valid zone connector method defined!" );
+		};
 
 		ConfigUtils.setVspDefaults(config); // Needs to be done before config becomes locked for those changes
 		this.raptorParameters = RaptorUtils.createParameters(config);
-        this.nThreads = threads;
+		this.nThreads = threads;
 		this.zoneConnectorManager = zoneConnectorManager;
-        filterNetwork(network);
-    }
+		filterNetwork(network);
+	}
 
 	/**
 	 * @deprecated -- use {@link MatsimData#MatsimData(Properties, ZoneConnectorManager.ZoneConnectorMethod, DataContainer, MutableScenario)}
 	 */
 	@Deprecated
-    public MatsimData(Config config, Properties properties, ZoneConnectorManagerImpl.ZoneConnectorMethod method, DataContainer dataContainer, Network network) {
+	public MatsimData(Config config, Properties properties, ZoneConnectorManagerImpl.ZoneConnectorMethod method, DataContainer dataContainer, Network network) {
 		this.scenario = ScenarioUtils.createMutableScenario( config );
 
 		// yyyyyy MatsimData needs the scenario, everything else is stupid.  kai
 
-        int threads = properties.main.numberOfThreads;
-        final Collection<Zone> zones = dataContainer.getGeoData().getZones().values();
-        ZoneConnectorManager zoneConnectorManager = switch( method ){
-	        case RANDOM -> ZoneConnectorManagerImpl.createRandomZoneConnectors( zones, NUMBER_OF_CALC_POINTS );
-	        case WEIGHTED_BY_POPULATION -> ZoneConnectorManagerImpl.createWeightedZoneConnectors( zones,
-				dataContainer.getRealEstateDataManager(),
-				dataContainer.getHouseholdDataManager() );
-	        default -> throw new RuntimeException( "No valid zone connector method defined!" );
-	};
+		int threads = properties.main.numberOfThreads;
+		final Collection<Zone> zones = dataContainer.getGeoData().getZones().values();
+		ZoneConnectorManager zoneConnectorManager = switch( method ){
+			case RANDOM -> ZoneConnectorManagerImpl.createRandomZoneConnectors( zones, NUMBER_OF_CALC_POINTS );
+			case WEIGHTED_BY_POPULATION -> ZoneConnectorManagerImpl.createWeightedZoneConnectors( zones,
+					dataContainer.getRealEstateDataManager(),
+					dataContainer.getHouseholdDataManager() );
+			default -> throw new RuntimeException( "No valid zone connector method defined!" );
+		};
 
 		ConfigUtils.setVspDefaults(config); // Needs to be done before config becomes locked for those changes
 		this.nThreads = threads;
 		this.zoneConnectorManager = zoneConnectorManager;
-        filterNetwork(network);
-    }
+		filterNetwork(network);
+	}
 
 	/**
 	 * @deprecated -- use {@link MatsimData#MatsimData(Properties, ZoneConnectorManager.ZoneConnectorMethod, DataContainer, MutableScenario)}
 	 */
 	@Deprecated
-    public MatsimData(Config config, int threads,Network network, TransitSchedule schedule, ZoneConnectorManager zoneConnectorManager) {
+	public MatsimData(Config config, int threads,Network network, TransitSchedule schedule, ZoneConnectorManager zoneConnectorManager) {
 		this.scenario = ScenarioUtils.createMutableScenario( config );
 		this.scenario.setTransitSchedule( schedule );
 
-        ConfigUtils.setVspDefaults(config); // Needs to be done before config becomes locked for those changes
+		ConfigUtils.setVspDefaults(config); // Needs to be done before config becomes locked for those changes
 		this.raptorParameters = RaptorUtils.createParameters(config);
-        this.nThreads = threads;
+		this.nThreads = threads;
 		this.zoneConnectorManager = zoneConnectorManager;
-        filterNetwork(network);
-    }
+		filterNetwork(network);
+	}
 
-    public void filterNetwork(Network network) {
-        TransportModeNetworkFilter filter = new TransportModeNetworkFilter(network);
+	public void filterNetwork(Network network) {
+		TransportModeNetworkFilter filter = new TransportModeNetworkFilter(network);
 
-        Set<String> car = Sets.newHashSet(TransportMode.car);
-        Set<String> pt = Sets.newHashSet(TransportMode.pt, TransportMode.train, "bus",
-                "artificial", "subway", "tram", "rail");
+		Set<String> car = Sets.newHashSet(TransportMode.car);
+		Set<String> pt = Sets.newHashSet(TransportMode.pt, TransportMode.train, "bus",
+				"artificial", "subway", "tram", "rail");
 
-        Network carNetwork = NetworkUtils.createNetwork();
-        filter.filter(carNetwork, car);
+		Network carNetwork = NetworkUtils.createNetwork();
+		filter.filter(carNetwork, car);
 
-        Network ptNetwork = NetworkUtils.createNetwork();
-        filter.filter(ptNetwork, pt);
+		Network ptNetwork = NetworkUtils.createNetwork();
+		filter.filter(ptNetwork, pt);
 
-        this.carNetwork = carNetwork;
-        this.ptNetwork = ptNetwork;
-    }
+		this.carNetwork = carNetwork;
+		this.ptNetwork = ptNetwork;
+	}
 
-    ZoneConnectorManager getZoneConnectorManager() {
-        return zoneConnectorManager;
-    }
+	ZoneConnectorManager getZoneConnectorManager() {
+		return zoneConnectorManager;
+	}
 
-    public Network getCarNetwork() {
-        return carNetwork;
-    }
+	public Network getCarNetwork() {
+		return carNetwork;
+	}
 
 //    Network getPtNetwork() {
 //        return ptNetwork;
 //    }
 	// never used
 
-    public void update(TravelDisutility travelDisutility, TravelTime travelTime) {
-        this.travelDisutility = travelDisutility;
-        this.travelTime = travelTime;
+	public void update(TravelDisutility travelDisutility, TravelTime travelTime) {
+		this.travelDisutility = travelDisutility;
+		this.travelTime = travelTime;
 
-        this.leastCostPathCalculatorFactory = new AStarLandmarksFactory(nThreads);
+		this.leastCostPathCalculatorFactory = new AStarLandmarksFactory(nThreads);
 
-        if ( this.scenario.getConfig().transit().isUseTransit() && this.scenario.getTransitSchedule() != null) {
-            RaptorStaticConfig raptorConfig = RaptorUtils.createStaticConfig( this.scenario.getConfig() );
-            Vehicles ptVehicles = null;
-            OccupancyData occupancyData = null;
-            raptorData = SwissRailRaptorData.create( this.scenario.getTransitSchedule(), ptVehicles, raptorConfig, ptNetwork, occupancyData );
+		if ( this.scenario.getConfig().transit().isUseTransit() && this.scenario.getTransitSchedule() != null) {
+			RaptorStaticConfig raptorConfig = RaptorUtils.createStaticConfig( this.scenario.getConfig() );
+			Vehicles ptVehicles = null;
+			OccupancyData occupancyData = null;
+			raptorData = SwissRailRaptorData.create( this.scenario.getTransitSchedule(), ptVehicles, raptorConfig, ptNetwork, occupancyData );
 
-            RaptorStaticConfig raptorConfigOneToAll = RaptorUtils.createStaticConfig( this.scenario.getConfig() );
-            raptorConfigOneToAll.setOptimization(RaptorStaticConfig.RaptorOptimization.OneToAllRouting);
-            raptorDataOneToAll = SwissRailRaptorData.create( this.scenario.getTransitSchedule(), ptVehicles, raptorConfig, ptNetwork, occupancyData );
+			RaptorStaticConfig raptorConfigOneToAll = RaptorUtils.createStaticConfig( this.scenario.getConfig() );
+			raptorConfigOneToAll.setOptimization(RaptorStaticConfig.RaptorOptimization.OneToAllRouting);
+			raptorDataOneToAll = SwissRailRaptorData.create( this.scenario.getTransitSchedule(), ptVehicles, raptorConfig, ptNetwork, occupancyData );
 
-            parametersForPerson = new DefaultRaptorParametersForPerson( this.scenario.getConfig() );
-            defaultRaptorStopFinder = new DefaultRaptorStopFinder(
+			parametersForPerson = new DefaultRaptorParametersForPerson( this.scenario.getConfig() );
+			defaultRaptorStopFinder = new DefaultRaptorStopFinder(
 					this.scenario.getConfig(),
-                    new DefaultRaptorIntermodalAccessEgress(),
-                    null);
-            routeSelector = new LeastCostRaptorRouteSelector();
-        }
-    }
+					new DefaultRaptorIntermodalAccessEgress(),
+					null);
+			routeSelector = new LeastCostRaptorRouteSelector();
+		}
+	}
 
-    MultiNodePathCalculator createMultiNodePathCalculator() {
-        return (MultiNodePathCalculator) multiNodeFactory.createPathCalculator(carNetwork, travelDisutility, travelTime);
-    }
+	MultiNodePathCalculator createMultiNodePathCalculator() {
+		return (MultiNodePathCalculator) multiNodeFactory.createPathCalculator(carNetwork, travelDisutility, travelTime);
+	}
 
-    MultiNodePathCalculator createFreeSpeedMultiNodePathCalculator() {
-        FreespeedTravelTimeAndDisutility freespeed = new FreespeedTravelTimeAndDisutility( this.scenario.getConfig().scoring());
-        return (MultiNodePathCalculator) multiNodeFactory.createPathCalculator(carNetwork, freespeed, freespeed);
-    }
+	MultiNodePathCalculator createFreeSpeedMultiNodePathCalculator() {
+		FreespeedTravelTimeAndDisutility freespeed = new FreespeedTravelTimeAndDisutility( this.scenario.getConfig().scoring());
+		return (MultiNodePathCalculator) multiNodeFactory.createPathCalculator(carNetwork, freespeed, freespeed);
+	}
 
-    TripRouter createTripRouter() {
+	TripRouter createTripRouter() {
 //        Scenario scenario = ScenarioUtils.loadScenario(config);
 
 		com.google.inject.Injector injector = Injector.createMinimalMatsimInjector( this.scenario.getConfig(), scenario );
@@ -234,52 +234,52 @@ public final class MatsimData {
 //        bd.setRoutingModule(TransportMode.car, carRoutingModule);
 //        bd.setRoutingModule(TransportMode.pt, ptRoutingModule);
 //        return bd.build();
-    }
+	}
 
-    SwissRailRaptor createSwissRailRaptor(RaptorStaticConfig.RaptorOptimization optimitzaion) {
+	SwissRailRaptor createSwissRailRaptor(RaptorStaticConfig.RaptorOptimization optimitzaion) {
 
 
-        switch (optimitzaion) {
-            case OneToAllRouting:
-                return new SwissRailRaptor(raptorDataOneToAll, parametersForPerson, routeSelector, defaultRaptorStopFinder,
-                        new DefaultRaptorInVehicleCostCalculator(), new DefaultRaptorTransferCostCalculator());
-            case OneToOneRouting:
-                return new SwissRailRaptor(raptorData, parametersForPerson, routeSelector, defaultRaptorStopFinder,
-                        new DefaultRaptorInVehicleCostCalculator(), new DefaultRaptorTransferCostCalculator());
-            default:
-                throw new RuntimeException("Unrecognized raptor optimization!");
-        }
-    }
+		switch (optimitzaion) {
+			case OneToAllRouting:
+				return new SwissRailRaptor(raptorDataOneToAll, parametersForPerson, routeSelector, defaultRaptorStopFinder,
+						new DefaultRaptorInVehicleCostCalculator(), new DefaultRaptorTransferCostCalculator());
+			case OneToOneRouting:
+				return new SwissRailRaptor(raptorData, parametersForPerson, routeSelector, defaultRaptorStopFinder,
+						new DefaultRaptorInVehicleCostCalculator(), new DefaultRaptorTransferCostCalculator());
+			default:
+				throw new RuntimeException("Unrecognized raptor optimization!");
+		}
+	}
 
-    LeastCostPathCalculator createLeastCostPathCalculator() {
-        return leastCostPathCalculatorFactory.createPathCalculator(carNetwork, travelDisutility, travelTime);
-    }
+	LeastCostPathCalculator createLeastCostPathCalculator() {
+		return leastCostPathCalculatorFactory.createPathCalculator(carNetwork, travelDisutility, travelTime);
+	}
 
-    RoutingModule getTeleportationRouter(String mode) {
-        Scenario scenario = ScenarioUtils.loadScenario( this.scenario.getConfig() );
-        return DefaultRoutingModules.createTeleportationRouter(
+	RoutingModule getTeleportationRouter(String mode) {
+		Scenario scenario = ScenarioUtils.loadScenario( this.scenario.getConfig() );
+		return DefaultRoutingModules.createTeleportationRouter(
 //                mode, PopulationUtils.getFactory(), config.plansCalcRoute().getOrCreateModeRoutingParams(mode));
-                mode, scenario, this.scenario.getConfig().routing().getModeRoutingParams().get(mode ) );
-    }
+				mode, scenario, this.scenario.getConfig().routing().getModeRoutingParams().get(mode ) );
+	}
 
-    SwissRailRaptorData getRaptorData(RaptorStaticConfig.RaptorOptimization optimization) {
-        switch (optimization) {
-            case OneToAllRouting:
-                return raptorDataOneToAll;
-            case OneToOneRouting:
-                return raptorData;
-            default:
-                throw new RuntimeException("Unrecognized raptor optimization!");
-        }
-    }
+	SwissRailRaptorData getRaptorData(RaptorStaticConfig.RaptorOptimization optimization) {
+		switch (optimization) {
+			case OneToAllRouting:
+				return raptorDataOneToAll;
+			case OneToOneRouting:
+				return raptorData;
+			default:
+				throw new RuntimeException("Unrecognized raptor optimization!");
+		}
+	}
 
-    RaptorParameters getRaptorParameters() {
-        return raptorParameters;
-    }
+	RaptorParameters getRaptorParameters() {
+		return raptorParameters;
+	}
 
-    public void updateMatsimPopulation(Population matsimPopulation) {
+	public void updateMatsimPopulation(Population matsimPopulation) {
 		this.scenario.setPopulation( matsimPopulation );
-    }
+	}
 //	public void updateMatsimVehicles( Vehicles vehicles ) {
 //		this.scenario.setVehicles( vehicles );
 //	}
