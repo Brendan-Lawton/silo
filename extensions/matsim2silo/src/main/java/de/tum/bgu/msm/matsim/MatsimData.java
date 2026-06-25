@@ -74,21 +74,15 @@ public final class MatsimData {
 
         int threads = properties.main.numberOfThreads;
         final Collection<Zone> zones = dataContainer.getGeoData().getZones().values();
-        ZoneConnectorManager zoneConnectorManager;
-        switch (method) {
-            case RANDOM:
-                zoneConnectorManager = ZoneConnectorManagerImpl.createRandomZoneConnectors(zones, NUMBER_OF_CALC_POINTS);
-                break;
-            case WEIGHTED_BY_POPULATION:
-                zoneConnectorManager = ZoneConnectorManagerImpl.createWeightedZoneConnectors(zones,
-                        dataContainer.getRealEstateDataManager(),
-                        dataContainer.getHouseholdDataManager());
-                break;
-            default:
-                throw new RuntimeException("No valid zone connector method defined!");
-        }
+        ZoneConnectorManager zoneConnectorManager = switch( method ){
+	        case RANDOM -> ZoneConnectorManagerImpl.createRandomZoneConnectors( zones, NUMBER_OF_CALC_POINTS );
+	        case WEIGHTED_BY_POPULATION -> ZoneConnectorManagerImpl.createWeightedZoneConnectors( zones,
+				dataContainer.getRealEstateDataManager(),
+				dataContainer.getHouseholdDataManager() );
+	        default -> throw new RuntimeException( "No valid zone connector method defined!" );
+	};
 
-        ConfigUtils.setVspDefaults(config); // Needs to be done before config becomes locked for those changes
+		ConfigUtils.setVspDefaults(config); // Needs to be done before config becomes locked for those changes
 		this.raptorParameters = RaptorUtils.createParameters(config);
         this.nThreads = threads;
 		this.zoneConnectorManager = zoneConnectorManager;
@@ -106,21 +100,15 @@ public final class MatsimData {
 
         int threads = properties.main.numberOfThreads;
         final Collection<Zone> zones = dataContainer.getGeoData().getZones().values();
-        ZoneConnectorManager zoneConnectorManager;
-        switch (method) {
-            case RANDOM:
-                zoneConnectorManager = ZoneConnectorManagerImpl.createRandomZoneConnectors(zones, NUMBER_OF_CALC_POINTS);
-                break;
-            case WEIGHTED_BY_POPULATION:
-                zoneConnectorManager = ZoneConnectorManagerImpl.createWeightedZoneConnectors(zones,
-                        dataContainer.getRealEstateDataManager(),
-                        dataContainer.getHouseholdDataManager());
-                break;
-            default:
-                throw new RuntimeException("No valid zone connector method defined!");
-        }
+        ZoneConnectorManager zoneConnectorManager = switch( method ){
+	        case RANDOM -> ZoneConnectorManagerImpl.createRandomZoneConnectors( zones, NUMBER_OF_CALC_POINTS );
+	        case WEIGHTED_BY_POPULATION -> ZoneConnectorManagerImpl.createWeightedZoneConnectors( zones,
+				dataContainer.getRealEstateDataManager(),
+				dataContainer.getHouseholdDataManager() );
+	        default -> throw new RuntimeException( "No valid zone connector method defined!" );
+	};
 
-        ConfigUtils.setVspDefaults(config); // Needs to be done before config becomes locked for those changes
+		ConfigUtils.setVspDefaults(config); // Needs to be done before config becomes locked for those changes
 		this.nThreads = threads;
 		this.zoneConnectorManager = zoneConnectorManager;
         filterNetwork(network);

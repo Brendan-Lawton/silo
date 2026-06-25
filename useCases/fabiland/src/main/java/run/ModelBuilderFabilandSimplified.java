@@ -59,9 +59,11 @@ import org.matsim.core.config.Config;
 import org.matsim.core.scenario.ScenarioUtils;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Random;
 
 import static de.tum.bgu.msm.matsim.SimpleCommuteModeChoiceMatsimScenarioAssembler.HandlingOfRandomness;
+import static de.tum.bgu.msm.matsim.ZoneConnectorManagerImpl.*;
 
 public class ModelBuilderFabilandSimplified{
 
@@ -77,72 +79,44 @@ public class ModelBuilderFabilandSimplified{
 
         final DeathModel deathModel = new DeathModelImpl(dataContainer, properties, new DefaultDeathStrategy(), SiloUtil.provideNewRandom());
 
-        final HousingStrategy<Dwelling> housingStrategy = new SimpleCommuteModeChoiceHousingStrategyImpl( dataContainer,
-                        properties,
-                        dataContainer.getTravelTimes(),
-                        new DwellingUtilityStrategyImpl(),
-                        utl ->  Math.exp(0.5*utl) ,
-                        new RegionUtilityStrategyImpl(),
-                        utl ->  Math.exp(0.5*utl) ,
-                        new SimpleMatsimCommuteModeChoice( dataContainer, properties, SiloUtil.provideNewRandom() )
-        );
-
-        final HousingStrategy<Dwelling> housingStrategy2 = new HousingStrategy<Dwelling>(){
-            @Override public void setup(){
-                // probably ok to do nothing
-            }
-            @Override public void prepareYear(){
-                // probably ok to do nothing
-            }
-
-            @Override public boolean isHouseholdEligibleToLiveHere( Household household, Dwelling dd ){
-                return true;
-            }
-
-            @Override public double calculateHousingUtility( Household hh, Dwelling dwelling ){
-                return 1.;
-            }
-            @Override public double calculateSelectDwellingProbability( double util ){
-                return Math.exp( 0.5 * util );
-            }
-
-            @Override public double calculateRegionalUtility( Household household, Region region ){
-                return 1.;
-            }
-            @Override public double calculateSelectRegionProbability( double util ){
-                return Math.exp( 0.5 * util );
-            }
-
-            @Override public HousingStrategy<Dwelling> duplicate(){
-                throw new RuntimeException( "not implemented" );
-            }
-        };
-        // (( Ich weiss nicht, warum die utilities offen gelegt werden, weil sie eigentlich nur über die proba functions (die ja oben im
-        // ctor stehen) angesprochen werden.  Vllt könnten die protected sein, dann würde das noch schmaler werden.
-        // (--> nein, geht nicht, wird an wenigen Stellen auch ausserhalb verwendet.  (Da werden die Nutzen aufsummiert; das könnte
-        // man vllt auch per "ln" aus den probas reverse engineeren.  Aber so viel design change wollen wir vllt nicht.) ))
-
-        final MovesModel movesModel = new MovesModelImpl( dataContainer, properties, new DefaultMovesStrategy(), housingStrategy, SiloUtil.provideNewRandom());
-
-        final MovesModel movesModel2 = new AbstractMovesModel( dataContainer, properties, SiloUtil.provideNewRandom() ) {
-            @Override public Collection<MoveEvent> getEventsForCurrentYear( int year ){
-                throw new RuntimeException( "not implemented" );
-            }
-            @Override public boolean handleEvent( MoveEvent event ){
-                throw new RuntimeException( "not implemented" );
-            }
+        final MovesModel movesModel = new MovesModel(){
             @Override public int searchForNewDwelling( Household household ){
                 return -1; // means no dwelling was found
+            }
+            @Override public void moveHousehold( Household hh, int idOldDD, int idNewDD ){
+                // do nothing
+            }
+            @Override public Collection<MoveEvent> getEventsForCurrentYear( int year ){
+                return Collections.emptyList();
+            }
+            @Override public boolean handleEvent( MoveEvent event ){
+                // this should not happen.  Maybe test?
+                // If this is needed, one cold use MovesModelImpl as a delegate and then go from there.
+                return false;
+            }
+            @Override public void setup(){
+                // do nothing
+            }
+            @Override public void prepareYear( int year ){
+                // do nothing
+            }
+            @Override public void endYear( int year ){
+                // do nothing
+            }
+            @Override public void endSimulation(){
+                // do nothing
             }
         };
 
         final CreateCarOwnershipModel carOwnershipModel = new FabilandCarOwnership();
+        // yy (for VSP purposes, car ownership could also be done by matsim)
 
         final DivorceModel divorceModel = new DivorceModelImpl(
                 dataContainer, movesModel, carOwnershipModel, hhFactory,
                 properties, new DefaultDivorceStrategy(), SiloUtil.provideNewRandom());
 
         final DriversLicenseModel driversLicenseModel = new DriversLicenseModelImpl(dataContainer, properties, new DefaultDriversLicenseStrategy(), SiloUtil.provideNewRandom());
+        // yy for VSP purposes, this might not be needed
 
         final EducationModel educationModel = new EducationModelImpl(dataContainer, properties, SiloUtil.provideNewRandom());
 
@@ -153,20 +127,12 @@ public class ModelBuilderFabilandSimplified{
 
         final JobMarketUpdate jobMarketUpdateModel = new JobMarketUpdateImpl(dataContainer, properties, SiloUtil.provideNewRandom());
 
-//        ConstructionModel construction = new ConstructionModelImpl(dataContainer, ddFactory,
-//                properties, new FabilandConstructionLocationStrategy(), new DefaultConstructionDemandStrategy(), SiloUtil.provideNewRandom());
-
         final PricingModel pricing = new PricingModelImpl(dataContainer, properties, new DefaultPricingStrategy(), SiloUtil.provideNewRandom());
-
-//        RenovationModel renovation = new RenovationModelImpl(dataContainer, properties, new DefaultRenovationStrategy(), SiloUtil.provideNewRandom());
 
         final ConstructionOverwrite constructionOverwrite = new ConstructionOverwriteImpl(dataContainer, ddFactory, properties, SiloUtil.provideNewRandom());
 
         final InOutMigration inOutMigration = new InOutMigrationImpl(dataContainer, employmentModel, movesModel,
                 carOwnershipModel, driversLicenseModel, properties, SiloUtil.provideNewRandom());
-
-//        DemolitionModel demolition = new DemolitionModelImpl(dataContainer, movesModel,
-//                inOutMigration, properties, new DefaultDemolitionStrategy(), SiloUtil.provideNewRandom());
 
         final MarriageModel marriageModel = new MarriageModelImpl(dataContainer, movesModel, inOutMigration,
                 carOwnershipModel, hhFactory, properties, new DefaultMarriageStrategy(), SiloUtil.provideNewRandom());
@@ -177,12 +143,15 @@ public class ModelBuilderFabilandSimplified{
         MatsimData matsimData = null;
         if (config != null) {
             final Scenario scenario = ScenarioUtils.loadScenario(config);
-            matsimData = new MatsimData(config, properties, ZoneConnectorManagerImpl.ZoneConnectorMethod.WEIGHTED_BY_POPULATION, dataContainer, scenario.getNetwork(), scenario.getTransitSchedule());
+            matsimData = new MatsimData(config, properties, ZoneConnectorMethod.WEIGHTED_BY_POPULATION, dataContainer, scenario.getNetwork(), scenario.getTransitSchedule());
+            // (only the constructor is deprecated)
         }
         switch (properties.transportModel.transportModelIdentifier) {
             case MATSIM:
 //                SimpleCommuteModeChoice commuteModeChoice = new SimpleCommuteModeChoice(dataContainer, properties, SiloUtil.provideNewRandom());
                 SimpleMatsimCommuteModeChoice commuteModeChoice = new SimpleMatsimCommuteModeChoice(dataContainer, properties, SiloUtil.provideNewRandom());
+                // (for VSP purposes, this might not be needed)
+
                 scenarioAssembler = new SimpleCommuteModeChoiceMatsimScenarioAssembler(dataContainer, properties, commuteModeChoice, HandlingOfRandomness.localInstanceFromMatsimWithAlwaysSameSeed);
                 transportModel = new MatsimTransportModel(dataContainer, config, properties, scenarioAssembler, matsimData);
                 break;
