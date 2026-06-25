@@ -21,6 +21,8 @@ import org.matsim.api.core.v01.TransportMode;
 
 import java.util.*;
 
+import static org.matsim.api.core.v01.TransportMode.*;
+
 /**
  * Copy of SimpleCommuteModeChoice, but with person in argument of travel time request
  */
@@ -32,8 +34,7 @@ public class SimpleMatsimCommuteModeChoice implements CommuteModeChoice {
     private final GeoData geoData;
     private final Random random;
 
-    public SimpleMatsimCommuteModeChoice(DataContainer dataContainer,
-                                         Properties properties, Random random) {
+    public SimpleMatsimCommuteModeChoice(DataContainer dataContainer, Properties properties, Random random) {
         this.properties = properties;
         this.commutingTimeProbability = dataContainer.getCommutingTimeProbability();
         this.jobDataManager = dataContainer.getJobDataManager();
@@ -50,25 +51,27 @@ public class SimpleMatsimCommuteModeChoice implements CommuteModeChoice {
         Map<Integer, Map<String, Double>> commuteModesByPerson = new LinkedHashMap<>();
         TreeMap<Double, Person> personByProbability = new TreeMap<>();
 
+        // I think that the following assigns, for each member of the hh, logit probabilities based on travel time for pt and, if available, car.
         for (Person pp : household.getPersons().values()) {
             if (pp.getOccupation() == Occupation.EMPLOYED && pp.getJobId() != -2) {
+                // (yy what is encoded by "-2"?)
 
                 Job job = jobDataManager.getJobFromId(pp.getJobId());
 
                 // TODO clean up the following line
-                int ptMinutes = (int) ((MatsimTravelTimesAndCosts) travelTimes).getTravelTime(from, job, job.getStartTimeInSeconds().orElse((int) properties.transportModel.peakHour_s), TransportMode.pt, pp);
-                double ptUtility = commutingTimeProbability.getCommutingTimeProbability(ptMinutes, TransportMode.pt);
+                int ptMinutes = (int) ((MatsimTravelTimesAndCosts) travelTimes).getTravelTime(from, job, job.getStartTimeInSeconds().orElse((int) properties.transportModel.peakHour_s), pt, pp);
+                double ptUtility = commutingTimeProbability.getCommutingTimeProbability(ptMinutes, pt);
 
                 if (!pp.hasDriverLicense() ||  (int) household.getVehicles().stream().filter(vv -> vv.getType().equals(VehicleType.CAR)).count() == 0) {
-                    CommuteModeChoiceMapping.CommuteMode ptCommuteMode = new CommuteModeChoiceMapping.CommuteMode(TransportMode.pt, ptUtility);
+                    CommuteModeChoiceMapping.CommuteMode ptCommuteMode = new CommuteModeChoiceMapping.CommuteMode( pt, ptUtility);
                     commuteModeChoiceMapping.assignMode(ptCommuteMode, pp);
                 } else {
                     // TODO clean up the following line
-                    int carMinutes = (int) ((MatsimTravelTimesAndCosts) travelTimes).getTravelTime(from, job, job.getStartTimeInSeconds().orElse((int) properties.transportModel.peakHour_s), TransportMode.car, pp);
-                    double carUtility = commutingTimeProbability.getCommutingTimeProbability(carMinutes, TransportMode.car);
+                    int carMinutes = (int) ((MatsimTravelTimesAndCosts) travelTimes).getTravelTime(from, job, job.getStartTimeInSeconds().orElse((int) properties.transportModel.peakHour_s), car, pp);
+                    double carUtility = commutingTimeProbability.getCommutingTimeProbability(carMinutes, car);
                     Map<String, Double> utilityByMode = new LinkedHashMap<>();
-                    utilityByMode.put(TransportMode.car, carUtility);
-                    utilityByMode.put(TransportMode.pt, ptUtility);
+                    utilityByMode.put( car, carUtility );
+                    utilityByMode.put( pt, ptUtility );
                     commuteModesByPerson.put(pp.getId(), utilityByMode);
                     double probabilityAsKey;
                     if (carUtility == 0 && ptUtility == 0) {
@@ -78,6 +81,8 @@ public class SimpleMatsimCommuteModeChoice implements CommuteModeChoice {
                     }
                     while (personByProbability.containsKey(probabilityAsKey)) {
                         //more than one hh member has exactly the same probability, so it would be replaced in the treemap
+                        // (forcing the carMinutes to (int) much increases the risk that this happens!!  kai, apr'26)
+                        // (random.nextDouble() is quite large to alleviate this problem. kai, apr'26)
                         probabilityAsKey += random.nextDouble();
                     }
                     personByProbability.put(probabilityAsKey, pp);
@@ -87,17 +92,18 @@ public class SimpleMatsimCommuteModeChoice implements CommuteModeChoice {
 
         int counter =  (int) household.getVehicles().stream().filter(vv -> vv.getType().equals(VehicleType.CAR)).count();
 
+        // The following goes through the hh members in decreasing proba, and assigns car with the logit proba as long as cars are available in the HH:
         for (Map.Entry<Double, Person> personForProbability : personByProbability.descendingMap().entrySet()) {
             Person person = personForProbability.getValue();
             CommuteModeChoiceMapping.CommuteMode commuteMode;
             if (counter == 0) {
-                commuteMode = new CommuteModeChoiceMapping.CommuteMode(TransportMode.pt, commuteModesByPerson.get(person.getId()).get(TransportMode.pt));
+                commuteMode = new CommuteModeChoiceMapping.CommuteMode( pt, commuteModesByPerson.get(person.getId() ).get( pt ));
             } else {
                 if (random.nextDouble() < personForProbability.getKey()) {
-                    commuteMode = new CommuteModeChoiceMapping.CommuteMode(TransportMode.car, commuteModesByPerson.get(person.getId()).get(TransportMode.car));
+                    commuteMode = new CommuteModeChoiceMapping.CommuteMode( car, commuteModesByPerson.get(person.getId() ).get( car ));
                     counter--;
                 } else {
-                    commuteMode = new CommuteModeChoiceMapping.CommuteMode(TransportMode.pt, commuteModesByPerson.get(person.getId()).get(TransportMode.pt));
+                    commuteMode = new CommuteModeChoiceMapping.CommuteMode( pt, commuteModesByPerson.get(person.getId() ).get( pt ));
                 }
             }
             commuteModeChoiceMapping.assignMode(commuteMode, person);
@@ -122,18 +128,18 @@ public class SimpleMatsimCommuteModeChoice implements CommuteModeChoice {
                 Zone jobZone = geoData.getZones().get(job.getZoneId());
 
 
-                int ptMinutes = (int) travelTimes.getTravelTimeFromRegion(region, jobZone, job.getStartTimeInSeconds().orElse((int) properties.transportModel.peakHour_s), TransportMode.pt);
-                double ptUtility = commutingTimeProbability.getCommutingTimeProbability(ptMinutes, TransportMode.pt);
+                int ptMinutes = (int) travelTimes.getTravelTimeFromRegion(region, jobZone, job.getStartTimeInSeconds().orElse((int) properties.transportModel.peakHour_s), pt);
+                double ptUtility = commutingTimeProbability.getCommutingTimeProbability(ptMinutes, pt);
 
                 if (!pp.hasDriverLicense() ||  (int) household.getVehicles().stream().filter(vv -> vv.getType().equals(VehicleType.CAR)).count() == 0) {
-                    CommuteModeChoiceMapping.CommuteMode ptCommuteMode = new CommuteModeChoiceMapping.CommuteMode(TransportMode.pt, ptUtility);
+                    CommuteModeChoiceMapping.CommuteMode ptCommuteMode = new CommuteModeChoiceMapping.CommuteMode( pt, ptUtility);
                     commuteModeChoiceMapping.assignMode(ptCommuteMode, pp);
                 } else {
-                    int carMinutes = (int) travelTimes.getTravelTimeFromRegion(region, jobZone, job.getStartTimeInSeconds().orElse((int) properties.transportModel.peakHour_s), TransportMode.car);
-                    double carUtility = commutingTimeProbability.getCommutingTimeProbability(carMinutes, TransportMode.car);
+                    int carMinutes = (int) travelTimes.getTravelTimeFromRegion(region, jobZone, job.getStartTimeInSeconds().orElse((int) properties.transportModel.peakHour_s), car);
+                    double carUtility = commutingTimeProbability.getCommutingTimeProbability(carMinutes, car);
                     Map<String, Double> utilityByMode = new LinkedHashMap<>();
-                    utilityByMode.put(TransportMode.car, carUtility);
-                    utilityByMode.put(TransportMode.pt, ptUtility);
+                    utilityByMode.put( car, carUtility );
+                    utilityByMode.put( pt, ptUtility );
                     commuteModesByPerson.put(pp.getId(), utilityByMode);
                     double probabilityAsKey;
                     if (carUtility == 0 && ptUtility == 0) {
@@ -156,13 +162,13 @@ public class SimpleMatsimCommuteModeChoice implements CommuteModeChoice {
             Person person = personForProbability.getValue();
             CommuteModeChoiceMapping.CommuteMode commuteMode;
             if (counter == 0) {
-                commuteMode = new CommuteModeChoiceMapping.CommuteMode(TransportMode.pt, commuteModesByPerson.get(person.getId()).get(TransportMode.pt));
+                commuteMode = new CommuteModeChoiceMapping.CommuteMode( pt, commuteModesByPerson.get(person.getId() ).get( pt ));
             } else {
                 if (random.nextDouble() < personForProbability.getKey()) {
-                    commuteMode = new CommuteModeChoiceMapping.CommuteMode(TransportMode.car, commuteModesByPerson.get(person.getId()).get(TransportMode.car));
+                    commuteMode = new CommuteModeChoiceMapping.CommuteMode( car, commuteModesByPerson.get(person.getId() ).get( car ));
                     counter--;
                 } else {
-                    commuteMode = new CommuteModeChoiceMapping.CommuteMode(TransportMode.pt, commuteModesByPerson.get(person.getId()).get(TransportMode.pt));
+                    commuteMode = new CommuteModeChoiceMapping.CommuteMode( pt, commuteModesByPerson.get(person.getId() ).get( pt ));
                 }
             }
             commuteModeChoiceMapping.assignMode(commuteMode, person);

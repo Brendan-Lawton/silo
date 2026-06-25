@@ -119,8 +119,8 @@ public class SimpleCommuteModeChoiceMatsimScenarioAssembler implements MatsimSce
 
                 PopulationFactory pf = matsimPopulation.getFactory();
 
-                final int noHHAUtos = (int) household.getVehicles().stream().filter( vv -> vv.getType().equals( VehicleType.CAR ) ).count();
-                org.matsim.api.core.v01.population.Person matsimAlterEgo = SiloMatsimUtils.createMatsimAlterEgo(pf, person, noHHAUtos );
+                final int nHhCars = (int) household.getVehicles().stream().filter( vv -> vv.getType().equals( VehicleType.CAR ) ).count();
+                org.matsim.api.core.v01.population.Person matsimAlterEgo = SiloMatsimUtils.createMatsimAlterEgo(pf, person, nHhCars );
                 matsimPopulation.addPerson(matsimAlterEgo);
 
                 Dwelling dwelling = realEstateDataManager.getDwelling(household.getDwellingId());

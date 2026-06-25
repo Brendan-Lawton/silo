@@ -27,7 +27,10 @@ import java.util.*;
 
 import static de.tum.bgu.msm.data.dwelling.RealEstateUtils.RENT_CATEGORIES;
 
-public class SimpleCommuteModeChoiceHousingStrategyImpl implements HousingStrategy {
+public class SimpleCommuteModeChoiceHousingStrategyImpl implements HousingStrategy<Dwelling> {
+    // this used to be without <Dwelling>.  Which, in consequence, violated the generics contract.  The only place where this is
+    // used is isHouseholdEligibleToLiveHere(Household household, Dwelling dd) below, which means that the present implementation
+    // used the hardcoded "Dwelling" type.  So we can as well specify it.  kai, jun'26
 
     private final static Logger logger = LogManager.getLogger(SimpleCommuteModeChoiceHousingStrategyImpl.class);
 

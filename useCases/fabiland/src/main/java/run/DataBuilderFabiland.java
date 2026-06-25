@@ -52,9 +52,11 @@ public class DataBuilderFabiland {
         }
 
         CommutingTimeProbability commutingTimeProbability = new OnTheFlyCommutingTimeProbability();
+        // (This returns Math.exp(beta * minutes)).
 
         //TODO: revise this!
         new JobType(properties.jobData.jobTypes);
+        // (this is indeed quite odd ... uses a constructor to initialize some static variables.)
 
         RealEstateDataManager realEstateManager = new RealEstateDataManagerImpl(
                 new SandboxDwellingTypes(),

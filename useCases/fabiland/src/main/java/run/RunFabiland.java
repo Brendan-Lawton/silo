@@ -23,8 +23,7 @@ public class RunFabiland {
     private final static Logger logger = LogManager.getLogger(RunFabiland.class);
 
     public static void main(String[] args) {
-        // yyyy This does not run out of the box.  Presumably, it needs an argument.  Could you please add a comment that explains to make this here run?  Thanks ...  kai, jun'23
-        // yyyyyy Also, there should be a regression test running this method.  kai, jun'23
+        // see regression test
 
         Properties properties = SiloUtil.siloInitialization(args[0]);
 
