@@ -154,11 +154,6 @@ public final class MatsimData {
 		return carNetwork;
 	}
 
-//    Network getPtNetwork() {
-//        return ptNetwork;
-//    }
-	// never used
-
 	public void update(TravelDisutility travelDisutility, TravelTime travelTime) {
 		this.travelDisutility = travelDisutility;
 		this.travelTime = travelTime;
@@ -251,9 +246,10 @@ public final class MatsimData {
 		}
 	}
 
-	LeastCostPathCalculator createLeastCostPathCalculator() {
-		return leastCostPathCalculatorFactory.createPathCalculator(carNetwork, travelDisutility, travelTime);
-	}
+//	LeastCostPathCalculator createLeastCostPathCalculator() {
+//		return leastCostPathCalculatorFactory.createPathCalculator(carNetwork, travelDisutility, travelTime);
+//	}
+	// never used
 
 	RoutingModule getTeleportationRouter(String mode) {
 		Scenario scenario = ScenarioUtils.loadScenario( this.scenario.getConfig() );
@@ -284,6 +280,7 @@ public final class MatsimData {
 //		this.scenario.setVehicles( vehicles );
 //	}
 	// yyyyyy forgotten method in matsim api :-(
+	// added here: https://github.com/matsim-org/matsim-libs/pull/5034 .  Uncomment once available. kai, jun'26
 
 	// === only pure getters below here
 
@@ -296,9 +293,5 @@ public final class MatsimData {
 	public Population getMatsimPopulation() {
 		return this.scenario.getPopulation();
 	}
-//	public TransitSchedule getSchedule() {
-//		// where is this needed?  The router is plugged together in the present class ...
-//		return this.scenario.getTransitSchedule();
-//	}
 
 }
