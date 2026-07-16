@@ -68,10 +68,24 @@ import static de.tum.bgu.msm.matsim.ZoneConnectorManagerImpl.*;
 public class ModelBuilderFabilandSimplified{
 
     public static ModelContainer getModelContainer(DataContainer dataContainer, Properties properties, Config config) {
+        // As a base assumption, let us say that people work at "facilities", which we can imagine as Berlin-type blocks.  These
+        // would have something like 20k or even more sqm.  We could now assume that everybody just stays where they are, but
+        // dwellings grow or shring as necessary.  E.g. if people get children, the dwelling grows to a plausible size; and if
+        // people die, the dwelling vanisches and leaves sqm for others.  We could even imagine children moving out but staying in
+        // the same facility.  Also "male" partners would not move in.
+
+        // My intuition is that the first order error is not so bad, e.g.:
+        // * For every "male" partner not moving in, there will be some other "male" partner staying in the facility with having its "female" partner elsewhere.
+        // * For each family not moving out when getting children there will be some other person dying and making space.
+        // * Etc.
+
+        // I think that for such an approach we can simplify even more than what I have done below.
 
         final PersonFactory ppFactory = dataContainer.getHouseholdDataManager().getPersonFactory();
         final HouseholdFactory hhFactory = dataContainer.getHouseholdDataManager().getHouseholdFactory();
         final DwellingFactory ddFactory = dataContainer.getRealEstateDataManager().getDwellingFactory();
+        // (in most if not all cases, the dataContainer is handed over anyways.  --> add separate constructor w/o those factories;
+        // set old constructor to deprecated (but do not make effort to remove).
 
         final BirthModel birthModel = new BirthModelImpl(dataContainer, ppFactory, properties, new DefaultBirthStrategy(), SiloUtil.provideNewRandom());
 
@@ -109,14 +123,14 @@ public class ModelBuilderFabilandSimplified{
         };
 
         final CreateCarOwnershipModel carOwnershipModel = new FabilandCarOwnership();
-        // yy (for VSP purposes, car ownership could also be done by matsim)
+        // yy (for VSP purposes, car ownership could  be done by matsim)
 
         final DivorceModel divorceModel = new DivorceModelImpl(
                 dataContainer, movesModel, carOwnershipModel, hhFactory,
                 properties, new DefaultDivorceStrategy(), SiloUtil.provideNewRandom());
 
         final DriversLicenseModel driversLicenseModel = new DriversLicenseModelImpl(dataContainer, properties, new DefaultDriversLicenseStrategy(), SiloUtil.provideNewRandom());
-        // yy for VSP purposes, this might not be needed
+        // yy (for VSP purposes, this might not be needed)
 
         final EducationModel educationModel = new EducationModelImpl(dataContainer, properties, SiloUtil.provideNewRandom());
 
@@ -133,9 +147,12 @@ public class ModelBuilderFabilandSimplified{
 
         final InOutMigration inOutMigration = new InOutMigrationImpl(dataContainer, employmentModel, movesModel,
                 carOwnershipModel, driversLicenseModel, properties, SiloUtil.provideNewRandom());
+        // (do we need this at VSP?)
+        // (if we need it, the car ownership model can be null.  Presumably, also the drivers licence model.)
 
         final MarriageModel marriageModel = new MarriageModelImpl(dataContainer, movesModel, inOutMigration,
                 carOwnershipModel, hhFactory, properties, new DefaultMarriageStrategy(), SiloUtil.provideNewRandom());
+        // (do we need this at VSP?  We could also women have children.)
 
         TransportModel transportModel;
         MatsimScenarioAssembler scenarioAssembler;
