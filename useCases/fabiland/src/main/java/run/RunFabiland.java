@@ -25,6 +25,11 @@ public class RunFabiland {
     public static void main(String[] args) {
         // see regression test
 
+        // args: SILO config, MATSim config
+        // e.g., "useCases/fabiland/scenario/1r_ae.properties useCases/fabiland/scenario/config_cap30_1-l_nes_smc.xml"
+        // or, to match regression test ...
+        // "useCases/fabiland/scenario/test.properties useCases/fabiland/scenario/config_cap30_1-l_nes_smc.xml --config:controller.lastIteration 1 "
+
         Properties properties = SiloUtil.siloInitialization(args[0]);
 
         String[] matsimArgs = Arrays.copyOfRange( args, 1, args.length );
@@ -55,6 +60,7 @@ public class RunFabiland {
 
         logger.warn("Constructing model container ...");
         ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, properties, config);
+//        ModelContainer modelContainer = ModelBuilderFabilandSimplified.getModelContainer(dataContainer, properties, config);
         logger.warn("... done with constructing model container.");
 
         logger.warn("Constructing silo model ...");
