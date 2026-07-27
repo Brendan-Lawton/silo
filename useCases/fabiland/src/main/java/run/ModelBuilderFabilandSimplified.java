@@ -56,6 +56,7 @@ import de.tum.bgu.msm.utils.SiloUtil;
 import models.FabilandConstructionLocationStrategy;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.core.config.Config;
+import org.matsim.core.scenario.MutableScenario;
 import org.matsim.core.scenario.ScenarioUtils;
 
 import java.util.Collection;
@@ -160,8 +161,13 @@ public class ModelBuilderFabilandSimplified{
         MatsimData matsimData = null;
         if (config != null) {
             final Scenario scenario = ScenarioUtils.loadScenario(config);
-            matsimData = new MatsimData(config, properties, ZoneConnectorMethod.WEIGHTED_BY_POPULATION, dataContainer, scenario.getNetwork(), scenario.getTransitSchedule());
+            //  seems to be breaking
+//            matsimData = new MatsimData(config, properties, ZoneConnectorMethod.WEIGHTED_BY_POPULATION, dataContainer, scenario.getNetwork(), scenario.getTransitSchedule());
             // (only the constructor is deprecated)
+
+            // old version
+            matsimData = new MatsimData(properties, ZoneConnectorMethod.WEIGHTED_BY_POPULATION, dataContainer, (MutableScenario) scenario );
+
         }
         switch (properties.transportModel.transportModelIdentifier) {
             case MATSIM:
