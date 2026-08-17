@@ -233,8 +233,6 @@ public class RunFabilandTestModelReductionLarge {
                 protected boolean moveTogether(Person person1, Person person2, Household moveTo) {
                     return true;
                 }
-
-                ;
             };
             // (do we need this at VSP?  We could also women have children.)
 

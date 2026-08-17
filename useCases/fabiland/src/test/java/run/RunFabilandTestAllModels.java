@@ -10,6 +10,9 @@ import de.tum.bgu.msm.data.household.HouseholdFactory;
 import de.tum.bgu.msm.data.person.Person;
 import de.tum.bgu.msm.data.person.PersonFactory;
 import de.tum.bgu.msm.events.impls.household.MoveEvent;
+import de.tum.bgu.msm.io.output.DefaultResultsMonitor;
+import de.tum.bgu.msm.io.output.HouseholdSatisfactionMonitor;
+import de.tum.bgu.msm.io.output.MultiFileResultsMonitor;
 import de.tum.bgu.msm.matsim.*;
 import de.tum.bgu.msm.models.autoOwnership.CreateCarOwnershipModel;
 import de.tum.bgu.msm.models.demography.birth.BirthModel;
@@ -83,7 +86,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Random;
 
-@ExtendWith(MatsimTestUtils.class)
+//@ExtendWith(MatsimTestUtils.class)
 public class RunFabilandTestAllModels {
 
     //region Define global variables
@@ -112,9 +115,7 @@ public class RunFabilandTestAllModels {
     private static RenovationModel renovationModel;
 
     private static DataContainer dataContainer = null;
-    private static Properties properties = null;
     private static Properties siloConfig = null;
-    private static String[] matsimArgs = null;
     private static Config matsimConfig = null;
     //endregion
 
@@ -130,48 +131,33 @@ public class RunFabilandTestAllModels {
                 "--config:controler.lastIteration", "1"
         };
 
-        matsimArgs = Arrays.copyOfRange(args, 1, args.length);
+        siloConfig = SiloUtil.siloInitialization(args[0]);
 
-        // args: SILO config, MATSim config
-        // e.g., "useCases/fabiland/scenario/1r_ae.properties useCases/fabiland/scenario/config_cap30_1-l_nes_smc.xml"
-        // or, to match regression test ...
-        // "useCases/fabiland/scenario/test.properties useCases/fabiland/scenario/config_cap30_1-l_nes_smc.xml --config:controller.lastIteration 1 "
-
-        properties = Properties.initializeProperties(args[0]);
-        properties.main.scenarioName = "test";
-        final String outputDirectory = properties.main.baseDirectory + "scenOutput/" + properties.main.scenarioName;
-        SiloUtil.createDirectoryIfNotExistingYet(outputDirectory);
-
-        SummarizeData.resultFileSpatial("open");
-        SummarizeData.resultFileSpatial_2("open");
-        PropertiesUtil.writePropertiesForThisRun(args[0]);
-
-        SiloUtil.initializeRandomNumber(properties.main.randomSeed);
-        SiloUtil.trackingFile("open");
-        SiloUtil.loadHdf5Lib();
-        siloConfig = properties;
+        String[] matsimArgs = Arrays.copyOfRange( args, 1, args.length );
 
         matsimConfig = ConfigUtils.loadConfig(matsimArgs);
 
         // The following is obviously just a dirty quickfix until access/egress is default in MATSim
         if (siloConfig.transportModel.includeAccessEgress) {
+////            config.plansCalcRoute().setInsertingAccessEgressWalk(true); // in matsim-12
             matsimConfig.routing().setAccessEgressType(RoutingConfigGroup.AccessEgressType.accessEgressModeToLink); // in matsim-13-w37
         }
 
-        dataContainer = DataBuilderFabiland.buildDataContainer(siloConfig, matsimConfig);
-        DataBuilderFabiland.readInput(siloConfig, dataContainer);
         matsimConfig.controller().setOverwriteFileSetting(OutputDirectoryHierarchy.OverwriteFileSetting.overwriteExistingFiles);
 
-        setupModels(dataContainer, properties, matsimConfig);
+        dataContainer = DataBuilderFabiland.buildDataContainer(siloConfig, matsimConfig);
+        DataBuilderFabiland.readInput(siloConfig, dataContainer);
+
+        setupModels(dataContainer, siloConfig, matsimConfig);
     }
 
 	@Test
 	public void testAllModels() {
 
-    /* BASE TEST: This test runs with models.
-    Moves model has already been overwritten by Kai in this base case.   */
+        /* BASE TEST: This test runs with models.
+        Moves model has already been overwritten by Kai in this base case.   */
 
-    final ModelContainer modelContainer = new ModelContainer(
+    ModelContainer modelContainer = new ModelContainer(
             birthModel, birthdayModel,
             deathModel, marriageModel,
             divorceModel, driversLicenseModel,
@@ -180,15 +166,18 @@ public class RunFabilandTestAllModels {
             constructionModel, demolitionModel, pricingModel, renovationModel,
             constructionOverwrite, inOutMigration, movesModel, transportModel);
 
-    SiloModel model = new SiloModel(siloConfig, dataContainer, modelContainer);
-    //		model.addResultMonitor( new DefaultResultsMonitor(dataContainer, siloConfig) );
-    //		model.addResultMonitor( new MultiFileResultsMonitor(dataContainer, siloConfig) );
-    //		model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
 
-    model.runModel();
+//        ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, siloConfig, matsimConfig);
+        SiloModel model = new SiloModel(siloConfig, dataContainer, modelContainer);
+        model.addResultMonitor( new DefaultResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new MultiFileResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
+
+        model.runModel();
+
 
     // directory for population files:
-    String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + properties.main.scenarioName + "/microData/";
+    String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
     log.info("############################################");
     log.info("############################################");
@@ -216,6 +205,7 @@ public class RunFabilandTestAllModels {
         Table died = joined.where(joined.column(ageEndCol).isMissing());
         long numDied = died.rowCount();
         Assertions.assertNotEquals(0, numDied);
+
         log.info("Number died: " + numDied);
 
         // people present in both
@@ -255,16 +245,531 @@ public class RunFabilandTestAllModels {
 
         int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
         log.info("Stayed put count: " + stayedPutCount);
-        Assertions.assertEquals(normal.rowCount(), stayedPutCount);
+        Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
         log.info("Household change breakdown:\n" + hhChangeCounts.print());
     }
+    }
 
-    log.info("############################################");
-    log.info("############################################");
-    log.info("Model test ran successfully.");
-    log.info("############################################");
-    log.info("############################################");
+    @Test
+    public void testModelsLarge() {
 
+        /* BASE TEST: This test runs without
+         construction/constructionOverwrite/demolition/renovation models */
+
+        ModelContainer modelContainer = new ModelContainer(
+                birthModel, birthdayModel,
+                deathModel, marriageModel,
+                divorceModel, driversLicenseModel,
+                educationModel, employmentModel,
+                leaveParentsModel, jobMarketUpdateModel,
+                null, null, pricingModel, null,
+                null, inOutMigration, movesModel, transportModel);
+
+
+//        ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, siloConfig, matsimConfig);
+        SiloModel model = new SiloModel(siloConfig, dataContainer, modelContainer);
+        model.addResultMonitor( new DefaultResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new MultiFileResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
+
+        model.runModel();
+
+
+        // directory for population files:
+        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
+
+        log.info("############################################");
+        log.info("############################################");
+        {
+            Table ppStart = Table.read().csv(popfiles + "pp_0.csv");
+            Table ppEnd = Table.read().csv(popfiles + "pp_10.csv");
+
+            // full outer join on "id" — Tablesaw will rename colliding columns from the
+            // right-hand table (check joined.columnNames() to confirm the actual suffix,
+            // it's typically something like "age_2" but can vary by version)
+            Table joined = ppStart.joinOn("id").fullOuter(ppEnd, true, false, "id");
+
+            log.info("Joined columns: " + joined.columnNames());
+
+            String ageStartCol = "age";
+            String ageEndCol = "T2.age"; // <-- verify this against the logged column names above
+
+            // people born = present in pp_10 but not pp_0 -> age.x is missing
+            Table born = joined.where(joined.column(ageStartCol).isMissing());
+            long numBorn = born.rowCount();
+            Assertions.assertNotEquals(0, numBorn);
+            log.info("Number born: " + numBorn);
+
+            // people who died = present in pp_0 but not pp_10 -> age.y is missing
+            Table died = joined.where(joined.column(ageEndCol).isMissing());
+            long numDied = died.rowCount();
+            Assertions.assertNotEquals(0, numDied);
+
+            log.info("Number died: " + numDied);
+
+            // people present in both
+            Table normal = joined.dropWhere(
+                    joined.column(ageStartCol).isMissing()
+                            .or(joined.column(ageEndCol).isMissing())
+            );
+
+            DoubleColumn ageStart = normal.numberColumn(ageStartCol).asDoubleColumn();
+            DoubleColumn ageEnd = normal.numberColumn(ageEndCol).asDoubleColumn();
+            DoubleColumn ageDiff = ageEnd.subtract(ageStart).setName("age_diff");
+            normal.addColumns(ageDiff);
+
+            double[] uniqueDiffs = ageDiff.unique().asDoubleArray();
+
+            Assertions.assertEquals(1, uniqueDiffs.length,
+                    "Age difference should be identical for every person, but found: " + Arrays.toString(uniqueDiffs));
+            Assertions.assertEquals(9.0, uniqueDiffs[0], 1e-6,
+                    "Expected age difference of 9 years between pp_0 and pp_10");
+
+            // ---- 3. Household change (moved) ----
+            StringColumn hhChanged = StringColumn.create("household_changed", normal.rowCount());
+
+            for (Row row : normal) {
+                Integer hhx = row.getInt("hhid");
+                Integer hhy = row.getInt("T2.hhid");
+
+                String category = !hhx.equals(hhy) ? "moved household" : "stayed put";
+                hhChanged.set(row.getRowNumber(), category);
+            }
+            normal.addColumns(hhChanged);
+
+            Table hhChangeCounts = hhChanged.countByCategory();
+            Table stayedPutRow = hhChangeCounts.where(
+                    hhChangeCounts.stringColumn("Category").isEqualTo("stayed put")
+            );
+
+            int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
+            log.info("Stayed put count: " + stayedPutCount);
+            Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
+            log.info("Household change breakdown:\n" + hhChangeCounts.print());
+        }
+    }
+
+    @Test
+    public void testModelsMedium() {
+
+        /* BASE TEST: This test runs without
+         construction/constructionOverwrite/demolition/renovation
+         /driversLicense/education/employment/jobMarket models */
+
+        ModelContainer modelContainer = new ModelContainer(
+                birthModel, birthdayModel,
+                deathModel, marriageModel,
+                divorceModel, null,
+                null, null,
+                leaveParentsModel, null,
+                null, null, pricingModel, null,
+                null, inOutMigration, movesModel, transportModel);
+
+
+//        ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, siloConfig, matsimConfig);
+        SiloModel model = new SiloModel(siloConfig, dataContainer, modelContainer);
+        model.addResultMonitor( new DefaultResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new MultiFileResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
+
+        model.runModel();
+
+
+        // directory for population files:
+        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
+
+        log.info("############################################");
+        log.info("############################################");
+        {
+            Table ppStart = Table.read().csv(popfiles + "pp_0.csv");
+            Table ppEnd = Table.read().csv(popfiles + "pp_10.csv");
+
+            // full outer join on "id" — Tablesaw will rename colliding columns from the
+            // right-hand table (check joined.columnNames() to confirm the actual suffix,
+            // it's typically something like "age_2" but can vary by version)
+            Table joined = ppStart.joinOn("id").fullOuter(ppEnd, true, false, "id");
+
+            log.info("Joined columns: " + joined.columnNames());
+
+            String ageStartCol = "age";
+            String ageEndCol = "T2.age"; // <-- verify this against the logged column names above
+
+            // people born = present in pp_10 but not pp_0 -> age.x is missing
+            Table born = joined.where(joined.column(ageStartCol).isMissing());
+            long numBorn = born.rowCount();
+            Assertions.assertNotEquals(0, numBorn);
+            log.info("Number born: " + numBorn);
+
+            // people who died = present in pp_0 but not pp_10 -> age.y is missing
+            Table died = joined.where(joined.column(ageEndCol).isMissing());
+            long numDied = died.rowCount();
+            Assertions.assertNotEquals(0, numDied);
+
+            log.info("Number died: " + numDied);
+
+            // people present in both
+            Table normal = joined.dropWhere(
+                    joined.column(ageStartCol).isMissing()
+                            .or(joined.column(ageEndCol).isMissing())
+            );
+
+            DoubleColumn ageStart = normal.numberColumn(ageStartCol).asDoubleColumn();
+            DoubleColumn ageEnd = normal.numberColumn(ageEndCol).asDoubleColumn();
+            DoubleColumn ageDiff = ageEnd.subtract(ageStart).setName("age_diff");
+            normal.addColumns(ageDiff);
+
+            double[] uniqueDiffs = ageDiff.unique().asDoubleArray();
+
+            Assertions.assertEquals(1, uniqueDiffs.length,
+                    "Age difference should be identical for every person, but found: " + Arrays.toString(uniqueDiffs));
+            Assertions.assertEquals(9.0, uniqueDiffs[0], 1e-6,
+                    "Expected age difference of 9 years between pp_0 and pp_10");
+
+            // ---- 3. Household change (moved) ----
+            StringColumn hhChanged = StringColumn.create("household_changed", normal.rowCount());
+
+            for (Row row : normal) {
+                Integer hhx = row.getInt("hhid");
+                Integer hhy = row.getInt("T2.hhid");
+
+                String category = !hhx.equals(hhy) ? "moved household" : "stayed put";
+                hhChanged.set(row.getRowNumber(), category);
+            }
+            normal.addColumns(hhChanged);
+
+            Table hhChangeCounts = hhChanged.countByCategory();
+            Table stayedPutRow = hhChangeCounts.where(
+                    hhChangeCounts.stringColumn("Category").isEqualTo("stayed put")
+            );
+
+            int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
+            log.info("Stayed put count: " + stayedPutCount);
+            Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
+            log.info("Household change breakdown:\n" + hhChangeCounts.print());
+        }
+    }
+
+    @Test
+    public void testModelsSmall() {
+
+        /* BASE TEST: This test runs without
+         construction/constructionOverwrite/demolition/renovation
+         /driversLicense/education/employment/jobMarket models */
+
+        ModelContainer modelContainer = new ModelContainer(
+                birthModel, birthdayModel,
+                deathModel, null,
+                null, null,
+                null, null,
+                null, null,
+                null, null, pricingModel, null,
+                null, inOutMigration, movesModel, transportModel);
+
+
+//        ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, siloConfig, matsimConfig);
+        SiloModel model = new SiloModel(siloConfig, dataContainer, modelContainer);
+        model.addResultMonitor( new DefaultResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new MultiFileResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
+
+        model.runModel();
+
+
+        // directory for population files:
+        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
+
+        log.info("############################################");
+        log.info("############################################");
+        {
+            Table ppStart = Table.read().csv(popfiles + "pp_0.csv");
+            Table ppEnd = Table.read().csv(popfiles + "pp_10.csv");
+
+            // full outer join on "id" — Tablesaw will rename colliding columns from the
+            // right-hand table (check joined.columnNames() to confirm the actual suffix,
+            // it's typically something like "age_2" but can vary by version)
+            Table joined = ppStart.joinOn("id").fullOuter(ppEnd, true, false, "id");
+
+            log.info("Joined columns: " + joined.columnNames());
+
+            String ageStartCol = "age";
+            String ageEndCol = "T2.age"; // <-- verify this against the logged column names above
+
+            // people born = present in pp_10 but not pp_0 -> age.x is missing
+            Table born = joined.where(joined.column(ageStartCol).isMissing());
+            long numBorn = born.rowCount();
+            Assertions.assertNotEquals(0, numBorn);
+            log.info("Number born: " + numBorn);
+
+            // people who died = present in pp_0 but not pp_10 -> age.y is missing
+            Table died = joined.where(joined.column(ageEndCol).isMissing());
+            long numDied = died.rowCount();
+            Assertions.assertNotEquals(0, numDied);
+
+            log.info("Number died: " + numDied);
+
+            // people present in both
+            Table normal = joined.dropWhere(
+                    joined.column(ageStartCol).isMissing()
+                            .or(joined.column(ageEndCol).isMissing())
+            );
+
+            DoubleColumn ageStart = normal.numberColumn(ageStartCol).asDoubleColumn();
+            DoubleColumn ageEnd = normal.numberColumn(ageEndCol).asDoubleColumn();
+            DoubleColumn ageDiff = ageEnd.subtract(ageStart).setName("age_diff");
+            normal.addColumns(ageDiff);
+
+            double[] uniqueDiffs = ageDiff.unique().asDoubleArray();
+
+            Assertions.assertEquals(1, uniqueDiffs.length,
+                    "Age difference should be identical for every person, but found: " + Arrays.toString(uniqueDiffs));
+            Assertions.assertEquals(9.0, uniqueDiffs[0], 1e-6,
+                    "Expected age difference of 9 years between pp_0 and pp_10");
+
+            // ---- 3. Household change (moved) ----
+            StringColumn hhChanged = StringColumn.create("household_changed", normal.rowCount());
+
+            for (Row row : normal) {
+                Integer hhx = row.getInt("hhid");
+                Integer hhy = row.getInt("T2.hhid");
+
+                String category = !hhx.equals(hhy) ? "moved household" : "stayed put";
+                hhChanged.set(row.getRowNumber(), category);
+            }
+            normal.addColumns(hhChanged);
+
+            Table hhChangeCounts = hhChanged.countByCategory();
+            Table stayedPutRow = hhChangeCounts.where(
+                    hhChangeCounts.stringColumn("Category").isEqualTo("stayed put")
+            );
+
+            int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
+            log.info("Stayed put count: " + stayedPutCount);
+            Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
+            log.info("Household change breakdown:\n" + hhChangeCounts.print());
+        }
+    }
+
+    @Test
+    public void testModelsOnlyBirths() {
+
+        /* BASE TEST: This test runs without
+         construction/constructionOverwrite/demolition/renovation
+         /driversLicense/education/employment/jobMarket models */
+
+        ModelContainer modelContainer = new ModelContainer(
+                birthModel, null,
+                null, null,
+                null, null,
+                null, null,
+                null, null,
+                null, null, null, null,
+                null, null, null, transportModel);
+
+
+//        ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, siloConfig, matsimConfig);
+        SiloModel model = new SiloModel(siloConfig, dataContainer, modelContainer);
+        model.addResultMonitor( new DefaultResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new MultiFileResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
+
+        model.runModel();
+
+
+        // directory for population files:
+        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
+
+        log.info("############################################");
+        log.info("############################################");
+        {
+            Table ppStart = Table.read().csv(popfiles + "pp_0.csv");
+            Table ppEnd = Table.read().csv(popfiles + "pp_10.csv");
+
+            // full outer join on "id" — Tablesaw will rename colliding columns from the
+            // right-hand table (check joined.columnNames() to confirm the actual suffix,
+            // it's typically something like "age_2" but can vary by version)
+            Table joined = ppStart.joinOn("id").fullOuter(ppEnd, true, false, "id");
+
+            log.info("Joined columns: " + joined.columnNames());
+
+            String ageStartCol = "age";
+            String ageEndCol = "T2.age"; // <-- verify this against the logged column names above
+
+            // people born = present in pp_10 but not pp_0 -> age.x is missing
+            Table born = joined.where(joined.column(ageStartCol).isMissing());
+            long numBorn = born.rowCount();
+            Assertions.assertNotEquals(0, numBorn);
+            log.info("Number born: " + numBorn);
+
+            // people who died = present in pp_0 but not pp_10 -> age.y is missing
+            Table died = joined.where(joined.column(ageEndCol).isMissing());
+            long numDied = died.rowCount();
+            Assertions.assertNotEquals(0, numDied);
+
+            log.info("Number died: " + numDied);
+
+            // people present in both
+            Table normal = joined.dropWhere(
+                    joined.column(ageStartCol).isMissing()
+                            .or(joined.column(ageEndCol).isMissing())
+            );
+
+            DoubleColumn ageStart = normal.numberColumn(ageStartCol).asDoubleColumn();
+            DoubleColumn ageEnd = normal.numberColumn(ageEndCol).asDoubleColumn();
+            DoubleColumn ageDiff = ageEnd.subtract(ageStart).setName("age_diff");
+            normal.addColumns(ageDiff);
+
+            double[] uniqueDiffs = ageDiff.unique().asDoubleArray();
+
+            Assertions.assertEquals(1, uniqueDiffs.length,
+                    "Age difference should be identical for every person, but found: " + Arrays.toString(uniqueDiffs));
+            Assertions.assertEquals(9.0, uniqueDiffs[0], 1e-6,
+                    "Expected age difference of 9 years between pp_0 and pp_10");
+
+            // ---- 3. Household change (moved) ----
+            StringColumn hhChanged = StringColumn.create("household_changed", normal.rowCount());
+
+            for (Row row : normal) {
+                Integer hhx = row.getInt("hhid");
+                Integer hhy = row.getInt("T2.hhid");
+
+                String category = !hhx.equals(hhy) ? "moved household" : "stayed put";
+                hhChanged.set(row.getRowNumber(), category);
+            }
+            normal.addColumns(hhChanged);
+
+            Table hhChangeCounts = hhChanged.countByCategory();
+            Table stayedPutRow = hhChangeCounts.where(
+                    hhChangeCounts.stringColumn("Category").isEqualTo("stayed put")
+            );
+
+            int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
+            log.info("Stayed put count: " + stayedPutCount);
+            Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
+            log.info("Household change breakdown:\n" + hhChangeCounts.print());
+        }
+    }
+
+    @Test
+    public void testModelsKai() {
+
+        /* BASE TEST: This test runs with
+         birth, birthday, death, marriage (with no moving),
+         divorce, driversLicense, education,
+         employment (only get job if no job, don't move jobs) models */
+
+        employmentModel = new EmploymentModelImpl(dataContainer, siloConfig, SiloUtil.provideNewRandom()) {
+            @Override
+            public boolean lookForJob(int perId) {
+                final Person pp = dataContainer.getHouseholdDataManager().getPersonFromId(perId);
+//              don't look for job if person already has one.
+                if (pp.getOccupation() != null) {
+                    return false;
+                }
+
+
+                return false;   // stub this one
+            }
+        };
+
+        marriageModel = new MarriageModelImpl(dataContainer, movesModel, inOutMigration,
+                carOwnershipModel, hhFactory, siloConfig, new DefaultMarriageStrategy(), SiloUtil.provideNewRandom()) {
+            @Override
+            protected boolean moveTogether(Person person1, Person person2, Household moveTo) {
+                return true;
+            }
+        };
+
+        ModelContainer modelContainer = new ModelContainer(
+                birthModel, birthdayModel,
+                deathModel, marriageModel,
+                divorceModel, driversLicenseModel,
+                educationModel, employmentModel,
+                null, null,
+                null, null, null, null,
+                null, null, null, transportModel);
+
+
+//        ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, siloConfig, matsimConfig);
+        SiloModel model = new SiloModel(siloConfig, dataContainer, modelContainer);
+        model.addResultMonitor( new DefaultResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new MultiFileResultsMonitor(dataContainer, siloConfig) );
+        model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
+
+        model.runModel();
+
+
+        // directory for population files:
+        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
+
+        log.info("############################################");
+        log.info("############################################");
+        {
+            Table ppStart = Table.read().csv(popfiles + "pp_0.csv");
+            Table ppEnd = Table.read().csv(popfiles + "pp_10.csv");
+
+            // full outer join on "id" — Tablesaw will rename colliding columns from the
+            // right-hand table (check joined.columnNames() to confirm the actual suffix,
+            // it's typically something like "age_2" but can vary by version)
+            Table joined = ppStart.joinOn("id").fullOuter(ppEnd, true, false, "id");
+
+            log.info("Joined columns: " + joined.columnNames());
+
+            String ageStartCol = "age";
+            String ageEndCol = "T2.age"; // <-- verify this against the logged column names above
+
+            // people born = present in pp_10 but not pp_0 -> age.x is missing
+            Table born = joined.where(joined.column(ageStartCol).isMissing());
+            long numBorn = born.rowCount();
+            Assertions.assertNotEquals(0, numBorn);
+            log.info("Number born: " + numBorn);
+
+            // people who died = present in pp_0 but not pp_10 -> age.y is missing
+            Table died = joined.where(joined.column(ageEndCol).isMissing());
+            long numDied = died.rowCount();
+            Assertions.assertNotEquals(0, numDied);
+
+            log.info("Number died: " + numDied);
+
+            // people present in both
+            Table normal = joined.dropWhere(
+                    joined.column(ageStartCol).isMissing()
+                            .or(joined.column(ageEndCol).isMissing())
+            );
+
+            DoubleColumn ageStart = normal.numberColumn(ageStartCol).asDoubleColumn();
+            DoubleColumn ageEnd = normal.numberColumn(ageEndCol).asDoubleColumn();
+            DoubleColumn ageDiff = ageEnd.subtract(ageStart).setName("age_diff");
+            normal.addColumns(ageDiff);
+
+            double[] uniqueDiffs = ageDiff.unique().asDoubleArray();
+
+            Assertions.assertEquals(1, uniqueDiffs.length,
+                    "Age difference should be identical for every person, but found: " + Arrays.toString(uniqueDiffs));
+            Assertions.assertEquals(9.0, uniqueDiffs[0], 1e-6,
+                    "Expected age difference of 9 years between pp_0 and pp_10");
+
+            // ---- 3. Household change (moved) ----
+            StringColumn hhChanged = StringColumn.create("household_changed", normal.rowCount());
+
+            for (Row row : normal) {
+                Integer hhx = row.getInt("hhid");
+                Integer hhy = row.getInt("T2.hhid");
+
+                String category = !hhx.equals(hhy) ? "moved household" : "stayed put";
+                hhChanged.set(row.getRowNumber(), category);
+            }
+            normal.addColumns(hhChanged);
+
+            Table hhChangeCounts = hhChanged.countByCategory();
+            Table stayedPutRow = hhChangeCounts.where(
+                    hhChangeCounts.stringColumn("Category").isEqualTo("stayed put")
+            );
+
+            int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
+            log.info("Stayed put count: " + stayedPutCount);
+            Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
+            log.info("Household change breakdown:\n" + hhChangeCounts.print());
+        }
     }
 
     public void setupModels(DataContainer dataContainer, Properties properties, Config config) {
@@ -436,3 +941,4 @@ public class RunFabilandTestAllModels {
         }
     }
 }
+
