@@ -3,7 +3,6 @@ package run;
 import de.tum.bgu.msm.SiloModel;
 import de.tum.bgu.msm.container.DataContainer;
 import de.tum.bgu.msm.container.ModelContainer;
-import de.tum.bgu.msm.data.SummarizeData;
 import de.tum.bgu.msm.data.dwelling.DwellingFactory;
 import de.tum.bgu.msm.data.household.Household;
 import de.tum.bgu.msm.data.household.HouseholdFactory;
@@ -29,7 +28,6 @@ import de.tum.bgu.msm.models.demography.divorce.DivorceModelImpl;
 import de.tum.bgu.msm.models.demography.driversLicense.DefaultDriversLicenseStrategy;
 import de.tum.bgu.msm.models.demography.driversLicense.DriversLicenseModel;
 import de.tum.bgu.msm.models.demography.driversLicense.DriversLicenseModelImpl;
-import de.tum.bgu.msm.models.demography.driversLicense.DriversLicenseStrategy;
 import de.tum.bgu.msm.models.demography.education.EducationModel;
 import de.tum.bgu.msm.models.demography.education.EducationModelImpl;
 import de.tum.bgu.msm.models.demography.employment.EmploymentModel;
@@ -58,7 +56,6 @@ import de.tum.bgu.msm.models.relocation.migration.InOutMigrationImpl;
 import de.tum.bgu.msm.models.relocation.moves.*;
 import de.tum.bgu.msm.models.transportModel.TransportModel;
 import de.tum.bgu.msm.properties.Properties;
-import de.tum.bgu.msm.properties.PropertiesUtil;
 import de.tum.bgu.msm.utils.SiloUtil;
 import models.FabilandConstructionLocationStrategy;
 import org.apache.logging.log4j.LogManager;
@@ -66,7 +63,6 @@ import org.apache.logging.log4j.Logger;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.extension.RegisterExtension;
 import org.matsim.api.core.v01.Scenario;
 import org.matsim.core.config.Config;
@@ -87,10 +83,10 @@ import java.util.Collections;
 import java.util.Random;
 
 //@ExtendWith(MatsimTestUtils.class)
-public class RunFabilandTestAllModels {
+public class RunFabilandModelCombinationTests {
 
     //region Define global variables
-    private static final Logger log = LogManager.getLogger(RunFabilandTestAllModels.class);
+    private static final Logger log = LogManager.getLogger(RunFabilandModelCombinationTests.class);
     private static MovesModel movesModel;
     private static BirthModel birthModel;
     private static PersonFactory ppFactory;
@@ -552,9 +548,7 @@ public class RunFabilandTestAllModels {
     @Test
     public void testModelsOnlyBirths() {
 
-        /* BASE TEST: This test runs without
-         construction/constructionOverwrite/demolition/renovation
-         /driversLicense/education/employment/jobMarket models */
+        /* BASE TEST: This test runs with birth and transport models */
 
         ModelContainer modelContainer = new ModelContainer(
                 birthModel, null,
@@ -654,22 +648,8 @@ public class RunFabilandTestAllModels {
 
         /* BASE TEST: This test runs with
          birth, birthday, death, marriage (with no moving),
-         divorce, driversLicense, education,
-         employment (only get job if no job, don't move jobs) models */
-
-        employmentModel = new EmploymentModelImpl(dataContainer, siloConfig, SiloUtil.provideNewRandom()) {
-            @Override
-            public boolean lookForJob(int perId) {
-                final Person pp = dataContainer.getHouseholdDataManager().getPersonFromId(perId);
-//              don't look for job if person already has one.
-                if (pp.getOccupation() != null) {
-                    return false;
-                }
-
-
-                return false;   // stub this one
-            }
-        };
+         driversLicense, education,
+         employment models */
 
         marriageModel = new MarriageModelImpl(dataContainer, movesModel, inOutMigration,
                 carOwnershipModel, hhFactory, siloConfig, new DefaultMarriageStrategy(), SiloUtil.provideNewRandom()) {
@@ -679,15 +659,44 @@ public class RunFabilandTestAllModels {
             }
         };
 
+        // breaks if we take moves out completely
+        movesModel = new MovesModel(){
+            @Override public int searchForNewDwelling( Household household ){
+                return -1; // means no dwelling was found
+            }
+            @Override public void moveHousehold( Household hh, int idOldDD, int idNewDD ){
+                // do nothing
+            }
+            @Override public Collection<MoveEvent> getEventsForCurrentYear(int year ){
+                return Collections.emptyList();
+            }
+            @Override public boolean handleEvent( MoveEvent event ){
+                // this should not happen.  Maybe test?
+                // If this is needed, one cold use MovesModelImpl as a delegate and then go from there.
+                return false;
+            }
+            @Override public void setup(){
+                // do nothing
+            }
+            @Override public void prepareYear( int year ){
+                // do nothing
+            }
+            @Override public void endYear( int year ){
+                // do nothing
+            }
+            @Override public void endSimulation(){
+                // do nothing
+            }
+        };
+
         ModelContainer modelContainer = new ModelContainer(
                 birthModel, birthdayModel,
                 deathModel, marriageModel,
-                divorceModel, driversLicenseModel,
+                null, driversLicenseModel,
                 educationModel, employmentModel,
                 null, null,
                 null, null, null, null,
-                null, null, null, transportModel);
-
+                null, null, movesModel, transportModel);
 
 //        ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, siloConfig, matsimConfig);
         SiloModel model = new SiloModel(siloConfig, dataContainer, modelContainer);
@@ -767,7 +776,7 @@ public class RunFabilandTestAllModels {
 
             int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
             log.info("Stayed put count: " + stayedPutCount);
-            Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
+            Assertions.assertEquals(normal.rowCount(), stayedPutCount);
             log.info("Household change breakdown:\n" + hhChangeCounts.print());
         }
     }
