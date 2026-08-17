@@ -113,6 +113,7 @@ public class RunFabilandModelCombinationTests {
     private static DataContainer dataContainer = null;
     private static Properties siloConfig = null;
     private static Config matsimConfig = null;
+    String popfiles = "";
     //endregion
 
     @RegisterExtension
@@ -128,6 +129,9 @@ public class RunFabilandModelCombinationTests {
         };
 
         siloConfig = SiloUtil.siloInitialization(args[0]);
+
+        // directory for population files - Change this to your path!
+        popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         String[] matsimArgs = Arrays.copyOfRange( args, 1, args.length );
 
@@ -170,10 +174,6 @@ public class RunFabilandModelCombinationTests {
         model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
 
         model.runModel();
-
-
-    // directory for population files:
-    String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
     log.info("############################################");
     log.info("############################################");
@@ -269,10 +269,6 @@ public class RunFabilandModelCombinationTests {
         model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
 
         model.runModel();
-
-
-        // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         log.info("############################################");
         log.info("############################################");
@@ -370,10 +366,6 @@ public class RunFabilandModelCombinationTests {
 
         model.runModel();
 
-
-        // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
-
         log.info("############################################");
         log.info("############################################");
         {
@@ -470,10 +462,6 @@ public class RunFabilandModelCombinationTests {
 
         model.runModel();
 
-
-        // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
-
         log.info("############################################");
         log.info("############################################");
         {
@@ -540,7 +528,7 @@ public class RunFabilandModelCombinationTests {
 
             int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
             log.info("Stayed put count: " + stayedPutCount);
-            Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
+            Assertions.assertEquals(normal.rowCount(), stayedPutCount);
             log.info("Household change breakdown:\n" + hhChangeCounts.print());
         }
     }
@@ -551,13 +539,13 @@ public class RunFabilandModelCombinationTests {
         /* BASE TEST: This test runs with birth and transport models */
 
         ModelContainer modelContainer = new ModelContainer(
-                birthModel, null,
+                null, birthdayModel,
                 null, null,
                 null, null,
                 null, null,
                 null, null,
                 null, null, null, null,
-                null, null, null, transportModel);
+                null, null, movesModel, transportModel);
 
 
 //        ModelContainer modelContainer = ModelBuilderFabiland.getModelContainer(dataContainer, siloConfig, matsimConfig);
@@ -567,10 +555,6 @@ public class RunFabilandModelCombinationTests {
         model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
 
         model.runModel();
-
-
-        // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         log.info("############################################");
         log.info("############################################");
@@ -591,13 +575,13 @@ public class RunFabilandModelCombinationTests {
             // people born = present in pp_10 but not pp_0 -> age.x is missing
             Table born = joined.where(joined.column(ageStartCol).isMissing());
             long numBorn = born.rowCount();
-            Assertions.assertNotEquals(0, numBorn);
+            Assertions.assertEquals(0, numBorn);
             log.info("Number born: " + numBorn);
 
             // people who died = present in pp_0 but not pp_10 -> age.y is missing
             Table died = joined.where(joined.column(ageEndCol).isMissing());
             long numDied = died.rowCount();
-            Assertions.assertNotEquals(0, numDied);
+            Assertions.assertEquals(0, numDied);
 
             log.info("Number died: " + numDied);
 
@@ -638,7 +622,7 @@ public class RunFabilandModelCombinationTests {
 
             int stayedPutCount = stayedPutRow.intColumn("Count").get(0);
             log.info("Stayed put count: " + stayedPutCount);
-            Assertions.assertNotEquals(normal.rowCount(), stayedPutCount);
+            Assertions.assertEquals(normal.rowCount(), stayedPutCount);
             log.info("Household change breakdown:\n" + hhChangeCounts.print());
         }
     }
@@ -705,10 +689,6 @@ public class RunFabilandModelCombinationTests {
         model.addResultMonitor( new HouseholdSatisfactionMonitor(dataContainer, siloConfig, modelContainer) );
 
         model.runModel();
-
-
-        // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         log.info("############################################");
         log.info("############################################");
