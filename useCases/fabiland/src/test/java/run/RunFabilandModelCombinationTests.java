@@ -117,6 +117,7 @@ public class RunFabilandModelCombinationTests {
 
     @RegisterExtension
 	public MatsimTestUtils utils = new MatsimTestUtils();
+    private String popfiles;
 
     @BeforeEach
     public void setup() {
@@ -128,6 +129,7 @@ public class RunFabilandModelCombinationTests {
         };
 
         siloConfig = SiloUtil.siloInitialization(args[0]);
+        popfiles = "/Users/jakob/git/silo-BL/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         String[] matsimArgs = Arrays.copyOfRange( args, 1, args.length );
 
@@ -172,8 +174,7 @@ public class RunFabilandModelCombinationTests {
         model.runModel();
 
 
-    // directory for population files:
-    String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
+    // directory for population files
 
     log.info("############################################");
     log.info("############################################");
@@ -272,7 +273,6 @@ public class RunFabilandModelCombinationTests {
 
 
         // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         log.info("############################################");
         log.info("############################################");
@@ -372,7 +372,6 @@ public class RunFabilandModelCombinationTests {
 
 
         // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         log.info("############################################");
         log.info("############################################");
@@ -472,7 +471,6 @@ public class RunFabilandModelCombinationTests {
 
 
         // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         log.info("############################################");
         log.info("############################################");
@@ -570,7 +568,6 @@ public class RunFabilandModelCombinationTests {
 
 
         // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         log.info("############################################");
         log.info("############################################");
@@ -708,7 +705,6 @@ public class RunFabilandModelCombinationTests {
 
 
         // directory for population files:
-        String popfiles = "/home/brendan/git/silo/useCases/fabiland/scenario/scenOutput/" + siloConfig.main.scenarioName + "/microData/";
 
         log.info("############################################");
         log.info("############################################");
